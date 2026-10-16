@@ -1,0 +1,37 @@
+<<<<<<< HEAD
+# cache
+*.py[cod]
+__pycache__/
+.DS_Store
+*/.DS_Store
+
+# save
+logs/*/
+save/*/
+
+# dataset
+dataset/v_nets/
+dataset/p_net/
+
+=======
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+.Python
+env/
+venv/
+.venv/
+conda_env/
+
+# 模型权重、大文件（核心！不要上传）
+*.pth
+*.pt
+*.bin
+*.ckpt
+*.safetensors
+*.h5
+*.hdf5
+*.onnx
+>>>>>>> 302aa2bea4de8be4140a2285e4984dac44de8678

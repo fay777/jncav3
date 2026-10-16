@@ -1,0 +1,115 @@
+num_v_nets: 1000  # 控制SFC请求的数量
+topology:
+  type: path  # 虚拟链路拓扑为path类型
+
+v_net_size:
+  distribution: uniform  # 均匀分布
+  dtype: int
+  low: 2
+  high: 10
+
+
+arrival_rate:
+  distribution: possion # 泊松分布
+  dtype: float
+  lam: 0.04
+  reciprocal: true
+lifetime:
+  distribution: uniform
+  dtype: int
+  low: 50
+  high: 200
+
+# The manuscript distinguishes normal and security-sensitive VNFs.  The
+# simulator creates 1--5 of each type per request and assigns their attributes
+# after the path topology is generated.
+vnf_composition:
+  normal:
+    count:
+      distribution: uniform
+      dtype: int
+      low: 1
+      high: 5
+    cpu: [2, 30]
+    mem: [2, 30]
+    security: [1, 3]
+  secure:
+    count:
+      distribution: uniform
+      dtype: int
+      low: 1
+      high: 5
+    cpu: [2, 15]
+    mem: [2, 15]
+    security: [4, 6]
+# max_latency:
+#   distribution: uniform
+#   dtype: float
+#   low: 0
+#   high: 50
+
+
+node_attrs_setting:
+  - name: cpu
+    distribution: uniform
+    dtype: int
+    generative: true
+    low: 2
+    high: 30
+    owner: node
+    type: resource
+    constraints: le
+  - name: mem
+    distribution: uniform
+    dtype: int
+    generative: true
+    low: 2
+    high: 30
+    owner: node
+    type: resource
+    constraints: le
+  - name: security
+    distribution: uniform
+    dtype: int
+    generative: true
+    low: 1
+    high: 6
+    owner: node
+    type: security
+    constraints: le
+
+
+link_attrs_setting:
+  - name: bw
+    distribution: uniform
+    dtype: int
+    generative: true
+    low: 2
+    high: 30
+    owner: link
+    type: resource
+    constraints: le
+  - name: security
+    distribution: uniform
+    dtype: int
+    generative: true
+    low: 1
+    high: 3
+    owner: link
+    type: security
+    constraints: le
+
+
+
+  # - name: ltc
+  #   owner: link
+  #   type: latency
+  #   generative: true
+  #   distribution: uniform
+  #   high: 2.
+  #   low: 1.
+save_dir: dataset\v_nets
+v_nets_file_name: v_net.gml
+v_nets_save_dir: v_nets
+events_file_name: events.yaml
+setting_file_name: v_sim_setting.yaml
