@@ -1,5 +1,6 @@
 from .bfs_trials import RandomRankBfsSolver, RandomWalkRankBfsSolver, OrderRankBfsSolver
 from .fit import FirstFitSolver
+from .security_aware import APPFDSIAdaptedSolver, SSDOSEAdaptedSolver
 from .joint_pr import RandomJointPRSolver
 from .node_rank import NodeRankSolver, GRCRankSolver, FFDRankSolver,RandomRankSolver, PLRankSolver, \
                         OrderRankSolver, RandomWalkRankSolver, NRMRankSolver
@@ -21,5 +22,7 @@ __all__ = [
 
     'RandomJointPRSolver',
     'FirstFitSolver',
+    'APPFDSIAdaptedSolver',
+    'SSDOSEAdaptedSolver',
     'RandomWalkRankBfsSolver',
 ]

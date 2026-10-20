@@ -111,6 +111,16 @@ class RandomWalkRankBfsSolver(BfsSolver):
         sorted_v_nodes = [n['node'] for n in sorted_v_net_node]
         sorted_p_nodes = [n for n in p_net_nodes_rank]
         p_net_init_node = sorted_p_nodes[0]
-        solution = self.controller.bfs_deploy(v_net, p_net, sorted_v_nodes, p_net_init_node)
+        # Keep RW-based node ranking and BFS node placement unchanged, while
+        # using the common feasible-path routing policy configured for all
+        # baselines (normally ``bfs_shortest``).
+        solution = self.controller.bfs_deploy(
+            v_net,
+            p_net,
+            sorted_v_nodes,
+            p_net_init_node,
+            shortest_method=self.shortest_method,
+            k=self.k_shortest,
+        )
 
         return solution
