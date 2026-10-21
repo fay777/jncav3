@@ -34,6 +34,12 @@ setting_arg.add_argument('--v_sim_setting_path', type=str, default='settings/v_s
 setting_arg.add_argument('--nn_setting_path', type=str, default='settings/neural_network.yaml', help='File path of neural network settings')
 setting_arg.add_argument('--rl_setting_path', type=str, default='settings/reinforcement_learning.yaml', help='File path of advanced reinforcement learning settings')
 setting_arg.add_argument('--run_setting_path', type=str, default='settings/running_and_training.yaml', help='File path of advanced running and training settings')
+setting_arg.add_argument('--p_net_dataset_path', type=str, default='',
+                         help='Explicit frozen physical-network dataset directory')
+setting_arg.add_argument('--v_nets_dataset_path', type=str, default='',
+                         help='Explicit frozen virtual-network workload directory')
+setting_arg.add_argument('--validation_v_nets_dataset_path', type=str, default='',
+                         help='Frozen workload directory used only for checkpoint validation')
 
 setting_arg.add_argument('--if_adjust_v_sim_setting', type=str2bool, default=False, help='Whether to deirectly adjust VN settings in parser')
 setting_arg.add_argument('--v_sim_setting_max_length', type=int, default=10, help='')
@@ -61,6 +67,12 @@ env_arg.add_argument('--trust_security_weight', type=float, default=0.6,
                      help='Weight of normalized static security in trust')
 env_arg.add_argument('--trust_feedback_weight', type=float, default=0.4,
                      help='Weight of smoothed deployment feedback in trust')
+env_arg.add_argument('--normalize_ts', type=str2bool, default=False,
+                     help='Normalize the PPO security score by mapped components')
+env_arg.add_argument('--incremental_security_shaping', type=str2bool, default=False,
+                     help='Use incremental normalized-security reward shaping')
+env_arg.add_argument('--reward_failure_penalty', type=float, default=1.0,
+                     help='Base terminal penalty used by incremental security shaping')
 
 ### solver  ###
 solver_arg = parser.add_argument_group('solver')
@@ -102,6 +114,8 @@ train_arg.add_argument('--num_workers', type=int, default=10, help='Number of su
 train_arg.add_argument('--target_steps', type=int, default=-1, help='Target steps for collecting experience')
 train_arg.add_argument('--repeat_times', type=int, default=10, help='')
 train_arg.add_argument('--use_negative_sample', type=str2bool, default=True, help='Whether to allow use failed sample to train')
+train_arg.add_argument('--validation_interval', type=int, default=10,
+                       help='Validate and consider a best checkpoint every N training epochs')
 
 train_arg.add_argument('--pretrained_model_path', type=str, default='', help='Path of pretrained model')  #!!!
 
@@ -113,6 +127,8 @@ run_arg.add_argument('--regenerate_v_nets', type=str2bool, default=False,
 run_arg.add_argument('--run_dir', type=str, default='',
                      help='Root directory for this run\'s results, logs, and summaries')
 run_arg.add_argument('--num_epochs', type=int, default=1, help='Number of epochs')
+run_arg.add_argument('--train_only', type=str2bool, default=False,
+                     help='Train and save checkpoints without running the post-training test loop')
 run_arg.add_argument('--if_save_config', type=str2bool, default=True, help='Whether to save the config file')
 # run_arg.add_argument('--renew_v_net_simulator', type=str2bool, default=False, help='')
 # run_arg.add_argument('--start_epoch', type=int, default=0, help='Start from epochi')
@@ -216,6 +232,11 @@ def check_config(config):
     assert config.reusable == False, 'Unsupported currently!'
     if config.target_steps != -1:
         assert config.target_steps % config.batch_size == 0, 'A should be greater than b!'
+    assert config.validation_interval >= 1, 'validation_interval must be at least 1.'
+    if config.incremental_security_shaping:
+        assert config.normalize_ts, 'incremental_security_shaping requires normalize_ts=true.'
+    if config.v_nets_dataset_path:
+        assert not config.regenerate_v_nets, 'A frozen v_nets_dataset_path cannot be regenerated.'
 
 def show_config(config):
     pprint.pprint(vars(config))

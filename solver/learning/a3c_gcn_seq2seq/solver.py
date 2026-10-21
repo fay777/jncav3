@@ -79,7 +79,11 @@ class A3CGcnSeq2SeqSolver(InstanceAgent, A2CSolver):
             }
             mask = np.expand_dims(sub_env.generate_action_mask(), axis=0)
             tensor_sub_obs = self.preprocess_obs(sub_obs, device=self.device)
-            action, action_logprob = self.select_action(tensor_sub_obs, mask=mask, sample=True)
+            # Evaluation must be deterministic; learning rollouts remain
+            # stochastic in ``learn_with_instance`` below.
+            action, action_logprob = self.select_action(
+                tensor_sub_obs, mask=mask, sample=self.policy.training
+            )
             next_sub_obs, sub_reward, sub_done, sub_info = sub_env.step(action[0])
 
             p_node_id = action[0].item()

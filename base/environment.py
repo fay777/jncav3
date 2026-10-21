@@ -55,7 +55,12 @@ class Environment:
         self.counter = counter
         self.verbose = kwargs.get('verbose', 1)
         self.p_net_dataset_dir = kwargs.get('p_net_dataset_dir', 'unknown_p_net_dataset_dir')
-        self.v_nets_dataset_dir = kwargs.get('v_nets_dataset_dir', 'unknown_v_nets_dataset_dir')
+        # An explicit directory is used for frozen validation/test workloads.
+        # Keep the legacy setting-derived directory as the default so existing
+        # experiments retain exactly their previous behaviour.
+        self.v_nets_dataset_path = kwargs.get('v_nets_dataset_path', '')
+        self.v_nets_dataset_dir = (self.v_nets_dataset_path or
+                                   kwargs.get('v_nets_dataset_dir', 'unknown_v_nets_dataset_dir'))
         self.renew_v_net_simulator = kwargs.get('renew_v_net_simulator', False)
 
         self.solver_name = kwargs.get('solver_name', 'unknown_slover')
@@ -120,16 +125,27 @@ class Environment:
         if self.recorder.if_temp_save_records and self.verbose >= 1:
             print(f'temp save record in {self.recorder.temp_save_path}\n')  # 临时保存当前epoch的处理进度
 
-        self.v_nets_dataset_dir = get_v_nets_dataset_dir_from_setting(self.v_net_simulator.v_sim_setting)
-        if self.renew_v_net_simulator:
-            self.v_net_simulator.renew(v_nets=True, events=True, seed=seed)
-            print(f'Generate virtual networks with seed {seed}') if self.verbose >= 1 else None
-        elif os.path.exists(self.v_nets_dataset_dir):
+        if self.v_nets_dataset_path:
+            if self.renew_v_net_simulator:
+                raise ValueError('A frozen v_nets_dataset_path cannot be regenerated in place.')
+            self.v_nets_dataset_dir = self.v_nets_dataset_path
+            if not os.path.exists(self.v_nets_dataset_dir):
+                raise FileNotFoundError(f'Frozen workload not found: {self.v_nets_dataset_dir}')
             self.v_net_simulator = self.v_net_simulator.load_dataset(self.v_nets_dataset_dir)
-            print(f'Load virtual networks from {self.v_nets_dataset_dir}') if self.verbose >= 1 else None
-        else: 
-            self.v_net_simulator.renew(v_nets=True, events=True, seed=seed)
-            print(f'\n*** Generate virtual networks with seed {seed}')
+            self.num_v_nets = self.v_net_simulator.num_v_nets
+            self.num_events = self.num_v_nets * 2
+            print(f'Load frozen virtual networks from {self.v_nets_dataset_dir}') if self.verbose >= 1 else None
+        else:
+            self.v_nets_dataset_dir = get_v_nets_dataset_dir_from_setting(self.v_net_simulator.v_sim_setting)
+            if self.renew_v_net_simulator:
+                self.v_net_simulator.renew(v_nets=True, events=True, seed=seed)
+                print(f'Generate virtual networks with seed {seed}') if self.verbose >= 1 else None
+            elif os.path.exists(self.v_nets_dataset_dir):
+                self.v_net_simulator = self.v_net_simulator.load_dataset(self.v_nets_dataset_dir)
+                print(f'Load virtual networks from {self.v_nets_dataset_dir}') if self.verbose >= 1 else None
+            else:
+                self.v_net_simulator.renew(v_nets=True, events=True, seed=seed)
+                print(f'\n*** Generate virtual networks with seed {seed}')
         self.cumulative_reward = 0
         self.num_processed_v_nets = 0
         self.start_run_time = time.time()

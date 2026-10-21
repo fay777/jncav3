@@ -9,6 +9,16 @@ class SubEnv(JointPRStepSubRLEnv):
     def __init__(self, p_net, v_net, controller, recorder, counter, **kwargs):
         super(SubEnv, self).__init__(p_net, v_net, controller, recorder, counter, **kwargs)
 
+        # Kept switchable so the legacy experiment remains reproducible.  The
+        # normalized formulation is used only when --normalize_ts true is
+        # supplied to a new training run.
+        self.normalize_ts = kwargs.get('normalize_ts', False)
+        self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
+        self.reward_failure_penalty = float(kwargs.get('reward_failure_penalty', 1.0))
+        # q_0 = 0 for every SFC.  It is advanced only after a successful
+        # partial placement, so terminal failure can cancel all prior shaping.
+        self.previous_security_score = 0.0
+
         num_p_net_node_attrs = len(self.p_net.get_node_attrs(['resource', 'extrema','security']))
         num_p_net_link_attrs = len(self.p_net.get_link_attrs(['resource', 'extrema','security']))
 
@@ -20,7 +30,7 @@ class SubEnv(JointPRStepSubRLEnv):
     def _calculate_reward(self, solution):
         revenue = solution['v_net_time_revenue']  # 总收益
         cost = solution['v_net_time_cost']  if solution['v_net_time_cost'] != 0 else 1  # 总成本
-        ts = solution['TS']  # 安全性能
+        ts = self._security_score(solution)
         success = solution['result']
         # ====================== 动态权重计算 ======================
         ssi = solution['ssi']
@@ -29,6 +39,26 @@ class SubEnv(JointPRStepSubRLEnv):
         omega = 1 / (1 + np.exp(-K * (ssi - SSI_THRESHOLD)))  # 式17
         phi = 1 - omega
         REWARD_COEFF = 0.9
+        if self.incremental_security_shaping:
+            if not self.normalize_ts:
+                raise ValueError('incremental_security_shaping requires normalize_ts=true')
+
+            # A completed solution is the only point at which the efficiency
+            # term is paid.  For intermediate successes, pay merely the
+            # security increment.  Hence a successful SFC receives omega*q_T
+            # exactly once in total, rather than once per VNF.
+            if success:
+                reward = omega * (ts - self.previous_security_score) + phi * (revenue / cost)
+                self.previous_security_score = ts
+            elif solution['place_result'] and solution['route_result']:
+                reward = omega * (ts - self.previous_security_score)
+                self.previous_security_score = ts
+            else:
+                # Cancel previously accrued security shaping on a failed SFC.
+                reward = -self.reward_failure_penalty - omega * self.previous_security_score
+            self.solution['v_net_reward'] = reward
+            return reward
+
         # ====================== 最终奖励计算 ======================
         if solution['result']:
             # 成功奖励（式16上半部分）
@@ -41,6 +71,39 @@ class SubEnv(JointPRStepSubRLEnv):
             reward = -REWARD_COEFF * penalty
         self.solution['v_net_reward'] = reward
         return reward
+
+    def _security_score(self, solution):
+        """Return the legacy TS or a bounded mean security score.
+
+        Trust is already in [0, 1].  A physical-link security level is divided
+        by its configured maximum before aggregation.  Averaging over mapped
+        VNFs and physical-link hops prevents longer chains from receiving a
+        larger reward solely because they contain more components.
+        """
+        if not self.normalize_ts:
+            return solution['TS']
+
+        node_ids = list(solution['node_slots'].values())
+        link_hops = [
+            p_link
+            for p_links in solution['link_paths'].values()
+            for p_link in p_links
+        ]
+        component_count = len(node_ids) + len(link_hops)
+        if component_count == 0:
+            return 0.0
+
+        link_max_security = max(
+            (float(attr.high) for attr in self.controller.link_security_attrs),
+            default=1.0,
+        )
+        node_score = sum(float(self.p_net.nodes[node_id].get('trust', 0.0))
+                         for node_id in node_ids)
+        link_score = sum(
+            float(self.p_net.edges[p_link].get('security', 0.0)) / link_max_security
+            for p_link in link_hops
+        )
+        return (node_score + link_score) / component_count
 
     def get_observation(self):
         p_net_obs = self._get_p_net_obs()

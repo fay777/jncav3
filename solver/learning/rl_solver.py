@@ -1,6 +1,7 @@
 import os
 import csv
 import copy
+import json
 import time
 import tqdm
 import pprint
@@ -147,6 +148,7 @@ class InstanceAgent(object):
         if self.verbose == 0:
             pprint.pprint(summary_info)
         print(f"\n{'-' * 30}     Done    {'-' * 30}\n") if self.verbose >= 0 else None
+        return summary_info
 
     def get_baseline_solution_info(self, instance, use_baseline_solver=True):
         """
@@ -235,6 +237,9 @@ class InstanceAgent(object):
     def learn(self, env, num_epochs=1, start_epoch=0, save_timestep=1000, config=None, **kwargs):
         # main env
         self.start_time = time.time()
+        validation_env = kwargs.get('validation_env')
+        validation_interval = int(kwargs.get('validation_interval', self.eval_interval))
+        best_score = None
 
         metrics = {
             'loss': [],
@@ -292,11 +297,39 @@ class InstanceAgent(object):
             epoch_logprobs_tensor = torch.cat(epoch_logprobs, dim=0)
             print(f'\nepoch {epoch_id + 1:4d}, success_count {success_count:5d}, r2c {info["total_r2c"]:1.4f}, mean logprob {epoch_logprobs_tensor.mean():2.4f}')
             # save
-            if (epoch_id + 1) != (start_epoch + num_epochs) and (epoch_id + 1) % self.save_interval == 0:
+            # Preserve both periodic candidates and the terminal model.  The
+            # latter is essential for a validation-based checkpoint selection
+            # protocol when the final epoch is the best candidate.
+            if ((epoch_id + 1) % self.save_interval == 0 or
+                    (epoch_id + 1) == (start_epoch + num_epochs)):
                 self.save_model(f'model-{epoch_id + 1}.pkl')
-            # validate
-            if (epoch_id + 1) != (start_epoch + num_epochs) and (epoch_id + 1) % self.eval_interval == 0:
+            # A held-out frozen workload selects checkpoints.  The primary
+            # criterion is LTA Time Revenue; Time R2C breaks exact ties.
+            should_validate = ((epoch_id + 1) % validation_interval == 0 or
+                               (epoch_id + 1) == (start_epoch + num_epochs))
+            if validation_env is not None and should_validate:
+                validation_summary = self.validate(validation_env)
+                candidate_score = (
+                    float(validation_summary['long_term_aver_time_revenue']),
+                    float(validation_summary['time_r2c_ratio']),
+                )
+                if best_score is None or candidate_score > best_score:
+                    best_score = candidate_score
+                    self.save_model('best_model.pkl')
+                    with open(os.path.join(self.model_dir, 'best_checkpoint.json'), 'w', encoding='utf-8') as file:
+                        json.dump({
+                            'model_epoch': epoch_id + 1,
+                            'selection_rule': 'max validation LTA Time Revenue; break ties by Time R2C',
+                            'long_term_aver_time_revenue': candidate_score[0],
+                            'time_r2c_ratio': candidate_score[1],
+                        }, file, indent=2)
+                    print(f'Saved best checkpoint from epoch {epoch_id + 1}: {candidate_score}')
+                self.train()
+            elif validation_env is None and should_validate:
+                # Legacy diagnostic path: retained only for backwards
+                # compatibility.  It must not be treated as held-out testing.
                 self.validate(env)
+                self.train()
 
         self.end_time = time.time()
         print(f'\nTotal training time: {(self.end_time - self.start_time) / 3600:4.6f} h')

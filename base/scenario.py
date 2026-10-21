@@ -10,6 +10,7 @@ from config import show_config, save_config
 from data.physical_network import PhysicalNetwork
 from data.virtual_network_request_simulator import VirtualNetworkRequestSimulator
 from utils import get_p_net_dataset_dir_from_setting
+from .environment import clone_network
 
 
 class Scenario:
@@ -34,7 +35,12 @@ class Scenario:
 
 
         # Create p_net and v_net simulator
-        config.p_net_dataset_dir = get_p_net_dataset_dir_from_setting(config.p_net_setting)
+        if config.p_net_dataset_path and not os.path.exists(config.p_net_dataset_path):
+            raise FileNotFoundError(
+                f'Frozen physical-network dataset not found: {config.p_net_dataset_path}'
+            )
+        config.p_net_dataset_dir = (config.p_net_dataset_path or
+                                    get_p_net_dataset_dir_from_setting(config.p_net_setting))
         if os.path.exists(config.p_net_dataset_dir):
             p_net = PhysicalNetwork.load_dataset(config.p_net_dataset_dir)
             p_net.init_network_trust(
@@ -65,6 +71,27 @@ class Scenario:
         # Create scenario
         # 实例化cls代表的类 即 Scenario
         scenario = cls(env, solver, config)
+        # Validation has its own frozen request trajectory and isolated
+        # recorder/counter.  It shares the immutable physical topology but is
+        # never allowed to update the policy.
+        scenario.validation_env = None
+        if config.validation_v_nets_dataset_path:
+            validation_kwargs = vars(config).copy()
+            validation_kwargs['v_nets_dataset_path'] = config.validation_v_nets_dataset_path
+            validation_kwargs['renew_v_net_simulator'] = False
+            validation_kwargs['if_save_records'] = False
+            validation_kwargs['if_temp_save_records'] = False
+            validation_output_dir = os.path.join(config.save_dir, 'validation')
+            validation_kwargs['save_dir'] = validation_output_dir
+            validation_kwargs['summary_dir'] = validation_output_dir
+            validation_counter = Counter(config.v_sim_setting['node_attrs_setting'],
+                                         config.v_sim_setting['link_attrs_setting'],
+                                         **validation_kwargs)
+            validation_recorder = Recorder(validation_counter, **validation_kwargs)
+            validation_simulator = VirtualNetworkRequestSimulator.from_setting(config.v_sim_setting)
+            scenario.validation_env = Env(clone_network(p_net), validation_simulator,
+                                          controller, validation_recorder,
+                                          validation_counter, **validation_kwargs)
         if config.verbose >= 2: show_config(config)
         if config.if_save_config: save_config(config)  # print(Save config in save\gat_seq2seq_ppo\LAPTOP-M43DF0FU\config.yaml)
 
@@ -83,7 +110,15 @@ class Scenario:
         # execute pretrain
         elif hasattr(self.solver, 'learn') and self.config.num_train_epochs > 0:
             print(f"\n{'-' * 30}  Pretrain  {'-' * 30}\n")
-            self.solver.learn(self.env, num_epochs=self.config.num_train_epochs)
+            self.solver.learn(self.env, num_epochs=self.config.num_train_epochs,
+                              validation_env=self.validation_env,
+                              validation_interval=self.config.validation_interval)
+            # Testing after training must evaluate the held-out-validation
+            # winner, never merely the final epoch.
+            best_checkpoint = os.path.join(getattr(self.solver, 'model_dir', ''), 'best_model.pkl')
+            if self.validation_env is not None and os.path.exists(best_checkpoint):
+                self.solver.load_model(best_checkpoint)
+                print(f'Loaded validation-selected checkpoint: {best_checkpoint}')
             print(f"\n{'-' * 30}    Done    {'-' * 30}\n")
         # set eval mode
         if hasattr(self.solver, 'eval'):
@@ -97,6 +132,9 @@ class BasicScenario(Scenario):
     def run(self):
         self.ready()
         print("ready 结束")
+        if self.config.train_only:
+            print('Training-only run complete; post-training test loop skipped.')
+            return
 
         metrics = {
             'acceptance_rate': [],

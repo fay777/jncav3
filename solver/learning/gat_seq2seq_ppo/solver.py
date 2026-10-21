@@ -70,7 +70,12 @@ class GATSeq2SeqPPOSolver(InstanceAgent, PPOSolver):
             }
             mask = np.expand_dims(sub_env.generate_action_mask(), axis=0)
             tensor_sub_obs = self.preprocess_obs(sub_obs, device=self.device)
-            action, action_logprob = self.select_action(tensor_sub_obs, mask=mask, sample=True)
+            # Keep stochastic sampling for rollout collection, but make
+            # checkpoint validation and final testing deterministic after
+            # ``Scenario.ready`` switches the policy to evaluation mode.
+            action, action_logprob = self.select_action(
+                tensor_sub_obs, mask=mask, sample=self.policy.training
+            )
             next_sub_obs, sub_reward, sub_done, sub_info = sub_env.step(action[0])
 
             p_node_id = action[0].item()
