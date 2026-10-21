@@ -8,6 +8,7 @@ __pycache__/
 # save
 logs/*/
 save/*/
+results/
 
 # dataset
 dataset/v_nets/
@@ -34,4 +35,7 @@ conda_env/
 *.h5
 *.hdf5
 *.onnx
+
+*.csv
+*.png
 >>>>>>> 302aa2bea4de8be4140a2285e4984dac44de8678
