@@ -496,11 +496,58 @@ class Network(nx.Graph):
         })
 
     def to_gml(self, fpath):
-        nx.write_gml(self, fpath)
+        """Write a GML-compatible copy without modifying this network."""
+        def encode_key(key):
+            return 'k' + str(key).encode('utf-8').hex()
+
+        def to_builtin(value):
+            if isinstance(value, np.generic):
+                return value.item()
+            if isinstance(value, dict):
+                return {encode_key(key): to_builtin(item) for key, item in value.items()}
+            if isinstance(value, (list, tuple, set)):
+                return [to_builtin(item) for item in value]
+            return value
+
+        gml_graph = nx.Graph()
+        gml_graph.graph.update(to_builtin(dict(self.graph)))
+        for node_id, attributes in self.nodes(data=True):
+            gml_graph.add_node(to_builtin(node_id), **to_builtin(dict(attributes)))
+        for source, target, attributes in self.edges(data=True):
+            gml_graph.add_edge(
+                to_builtin(source), to_builtin(target), **to_builtin(dict(attributes))
+            )
+        nx.write_gml(gml_graph, fpath)
 
     @classmethod
     def from_gml(cls, fpath):
         gml_net = nx.read_gml(fpath, destringizer=int)
+
+        def decode_key(key):
+            if not isinstance(key, str) or not key.startswith('k'):
+                return key
+            try:
+                return bytes.fromhex(key[1:]).decode('utf-8')
+            except ValueError:
+                return key
+
+        def from_builtin(value):
+            if isinstance(value, dict):
+                return {decode_key(key): from_builtin(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [from_builtin(item) for item in value]
+            return value
+
+        gml_net.graph = from_builtin(dict(gml_net.graph))
+        for _, attributes in gml_net.nodes(data=True):
+            original = from_builtin(dict(attributes))
+            attributes.clear()
+            attributes.update(original)
+        for _, _, attributes in gml_net.edges(data=True):
+            original = from_builtin(dict(attributes))
+            attributes.clear()
+            attributes.update(original)
+
         net = cls(incoming_graph_data=gml_net)
         net.check_attrs_existence()
         return net
