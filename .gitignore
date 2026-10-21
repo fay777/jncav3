@@ -1,41 +1,60 @@
-<<<<<<< HEAD
-# cache
-*.py[cod]
+# Python and editor caches
 __pycache__/
+*.py[cod]
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 .DS_Store
 */.DS_Store
+.idea/
+.vscode/
 
-# save
-logs/*/
-save/*/
-results/
-
-# dataset
-dataset/v_nets/
-dataset/p_net/
-
-=======
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pycache
-.Python
+# Local environments
 env/
 venv/
 .venv/
 conda_env/
 
-# 模型权重、大文件（核心！不要上传）
-*.pth
+# Trained model checkpoints and serialized large artifacts
 *.pt
-*.bin
+*.pth
+*.pkl
 *.ckpt
+*.bin
 *.safetensors
+*.onnx
 *.h5
 *.hdf5
-*.onnx
 
+# Training logs, TensorBoard data, records, figures, and generated summaries
+save/
+logs/
+log/
+results/
+runs_*/
+smoke_*/
+**/records/
+**/model/
+**/visualization/
+**/events.out.tfevents.*
+*.log
 *.csv
 *.png
->>>>>>> 302aa2bea4de8be4140a2285e4984dac44de8678
+*.jpg
+*.jpeg
+*.pdf
+
+# Generated datasets and frozen benchmark payloads can be regenerated from
+# settings/seeds. Keep only scripts and documentation in version control.
+dataset/p_net/
+dataset/v_nets/
+benchmark_jnca_v1/
+
+# OS temporary files
+*.swp
+*.swo
+*~
