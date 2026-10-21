@@ -58,3 +58,19 @@ benchmark_jnca_v1/
 *.swp
 *.swo
 *~
+
+# Server-generated experiment artifacts
+.idea/
+runs_*/
+smoke_*/
+save/
+benchmark_source_pnet/
+benchmark_jnca_v1/
+**/records/
+**/model/
+**/visualization/
+*.pt
+*.pth
+*.pkl
+*.ckpt
+*.log

@@ -1,2 +1,0 @@
-update_time,lr,loss/loss,loss/actor_loss,loss/critic_loss,loss/entropy_loss,value/logprob,value/old_action_logprob,value/value,value/return,value/advantage,value/reward,grad/grad_clipped
-1,0.001,0.546902,-7.450581e-09,1.1659074,4.60517,-4.6051707,-4.6051707,0.4264667,-0.11674212,7.450581e-09,-1.3914092,2.1252725
