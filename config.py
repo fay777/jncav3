@@ -152,13 +152,21 @@ misc_arg = parser.add_argument_group('misc')
 
 
 def get_config(args=None, adjust_p_net_setting={}, adjust_v_sim_setting={}):
+    # Resolve the three settings-file paths first.  Their values become parser
+    # defaults, so an explicit command-line option remains the final authority.
+    # The previous implementation parsed CLI arguments and then overwrote them
+    # with YAML values, which made options such as --pretrained_model_path
+    # ineffective whenever the YAML file contained the same key.
+    setting_paths, _ = parser.parse_known_args(args)
+    yaml_defaults = {}
+    for setting_path in (
+        setting_paths.nn_setting_path,
+        setting_paths.rl_setting_path,
+        setting_paths.run_setting_path,
+    ):
+        yaml_defaults.update(read_setting(setting_path))
+    parser.set_defaults(**yaml_defaults)
     config = parser.parse_args(args)
-    neural_network_settings = read_setting(config.nn_setting_path)   # √ nn_setting_path='settings/neural_network.yaml'
-    rl_settings = read_setting(config.rl_setting_path)               # √
-    run_settings = read_setting(config.run_setting_path)             # √
-    for k, v in neural_network_settings.items():setattr(config, k, v)
-    for k, v in rl_settings.items(): setattr(config, k, v)
-    for k, v in run_settings.items(): setattr(config, k, v)
     if config.regenerate_v_nets:
         config.renew_v_net_simulator = True
     if config.run_dir:
