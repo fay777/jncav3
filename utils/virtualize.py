@@ -84,7 +84,7 @@ def virtualize(p_net=None):
 
 def Visualization_epoch(metrics, visualization_dir=None):
     # Calculate average loss per epoch
-    loss = [sum(epoch_loss) / len(epoch_loss) for epoch_loss in metrics['loss']]
+    loss = [sum(epoch_loss) / len(epoch_loss) if len(epoch_loss) > 0 else float('nan') for epoch_loss in metrics['loss']]
     acceptance_rate = metrics['acceptance_rate']
     time_revenue = metrics['long_term_aver_time_revenue']
     r2c_ratio = metrics['long_term_aver_r2c_ratio']
