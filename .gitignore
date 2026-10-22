@@ -74,3 +74,5 @@ benchmark_jnca_v1/
 *.pkl
 *.ckpt
 *.log
+
+settings/v_sim_setting_smoke.yaml
