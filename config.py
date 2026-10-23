@@ -73,6 +73,8 @@ env_arg.add_argument('--incremental_security_shaping', type=str2bool, default=Fa
                      help='Use incremental normalized-security reward shaping')
 env_arg.add_argument('--reward_failure_penalty', type=float, default=1.0,
                      help='Base terminal penalty used by incremental security shaping')
+env_arg.add_argument('--security_reward_weight', type=float, default=-1.0,
+                     help='Fixed security weight in [0, 1]; -1 retains SSI-adaptive weighting')
 
 ### solver  ###
 solver_arg = parser.add_argument_group('solver')
@@ -243,6 +245,8 @@ def check_config(config):
     assert config.validation_interval >= 1, 'validation_interval must be at least 1.'
     if config.incremental_security_shaping:
         assert config.normalize_ts, 'incremental_security_shaping requires normalize_ts=true.'
+    assert -1.0 <= config.security_reward_weight <= 1.0, \
+        'security_reward_weight must be -1 or lie in [0, 1].'
     if config.v_nets_dataset_path:
         assert not config.regenerate_v_nets, 'A frozen v_nets_dataset_path cannot be regenerated.'
 

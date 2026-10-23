@@ -15,6 +15,9 @@ class SubEnv(JointPRStepSubRLEnv):
         self.normalize_ts = kwargs.get('normalize_ts', False)
         self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
         self.reward_failure_penalty = float(kwargs.get('reward_failure_penalty', 1.0))
+        # A non-negative value freezes the security/efficiency trade-off;
+        # -1 keeps the SSI-adaptive weighting used by legacy experiments.
+        self.security_reward_weight = float(kwargs.get('security_reward_weight', -1.0))
         # q_0 = 0 for every SFC.  It is advanced only after a successful
         # partial placement, so terminal failure can cancel all prior shaping.
         self.previous_security_score = 0.0
@@ -38,6 +41,9 @@ class SubEnv(JointPRStepSubRLEnv):
         SSI_THRESHOLD = 4 # ssi期望为3.5
         omega = 1 / (1 + np.exp(-K * (ssi - SSI_THRESHOLD)))  # 式17
         phi = 1 - omega
+        if self.security_reward_weight >= 0.0:
+            omega = self.security_reward_weight
+            phi = 1.0 - omega
         REWARD_COEFF = 0.9
         if self.incremental_security_shaping:
             if not self.normalize_ts:
