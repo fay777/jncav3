@@ -1,13 +1,17 @@
 # Re-run the two differentiated security-aware adapted baselines on the five
-# frozen JNCA test workloads.  Results are deliberately written to a new,
-# short root to avoid Windows MAX_PATH failures; existing formal results stay
-# untouched.
+# frozen JNCA test workloads.  Corrected results are co-located with the
+# formal CPU baselines.  Replacing the two known-invalid legacy result trees
+# requires explicit opt-in and never affects other baseline methods.
+
+param(
+    [switch]$ReplaceInvalidResults
+)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $projectRoot
 
-$resultRoot = 'r23'
+$resultRoot = 'runs_formal_20261022/baselines_cpu'
 $logRoot = Join-Path $resultRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 
@@ -15,8 +19,18 @@ $solvers = @('appf_dsi_adapted', 'ssd_ose_adapted')
 $seeds = 20001..20005
 
 foreach ($solver in $solvers) {
+    $legacySolverDir = Join-Path $resultRoot $solver
+    if (Test-Path $legacySolverDir) {
+        if (-not $ReplaceInvalidResults) {
+            throw "Existing $solver results are known-invalid. Re-run with -ReplaceInvalidResults to replace only this method's legacy result tree."
+        }
+        Remove-Item -LiteralPath $legacySolverDir -Recurse -Force
+    }
+}
+
+foreach ($solver in $solvers) {
     foreach ($seed in $seeds) {
-        $runDir = "$resultRoot/$solver/$seed"
+        $runDir = "$resultRoot/$solver/test_seed$seed"
         $stdout = Join-Path $logRoot "$solver-$seed.out.log"
         $stderr = Join-Path $logRoot "$solver-$seed.err.log"
 
