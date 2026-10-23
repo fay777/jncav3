@@ -29,10 +29,15 @@ class GATSeq2SeqPPOSolver(InstanceAgent, PPOSolver):
         num_p_net_edge_features = len(kwargs['p_net_setting']['link_attrs_setting'])
         num_v_net_node_features = len(kwargs['v_sim_setting']['node_attrs_setting'])
         num_v_net_edge_features = len(kwargs['v_sim_setting']['link_attrs_setting'])
+        # The optional trust channel changes only the physical-node input
+        # dimension.  It is deliberately off by default for a controlled
+        # reward-only versus trust-aware-state ablation.
+        trust_state_dim = int(bool(kwargs.get('include_trust_in_state', False)))
 
         self.policy = ActorCritic(
             p_net_num_nodes=num_p_net_nodes, 
-            p_net_feature_dim=1+num_p_net_node_features,    # +1 是因为在处理物理节点时多一位记录每个节点是否已经被部署过
+            p_net_feature_dim=1 + num_p_net_node_features + trust_state_dim,
+            # +1 is the selected-node marker; trust_state_dim is optional.
             p_net_edge_feature_dim=num_p_net_edge_features,
             v_net_feature_dim=num_v_net_node_features+num_v_net_edge_features, 
             embedding_dim=self.embedding_dim,

@@ -14,6 +14,10 @@ class SubEnv(JointPRStepSubRLEnv):
         # supplied to a new training run.
         self.normalize_ts = kwargs.get('normalize_ts', False)
         self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
+        # Optional ablation: expose the current, pre-feedback per-node trust
+        # value to the policy.  The default keeps the reward-only trust design
+        # and therefore preserves the former observation space exactly.
+        self.include_trust_in_state = kwargs.get('include_trust_in_state', False)
         self.reward_failure_penalty = float(kwargs.get('reward_failure_penalty', 1.0))
         # A non-negative value freezes the security/efficiency trade-off;
         # -1 keeps the SSI-adaptive weighting used by legacy experiments.
@@ -131,9 +135,20 @@ class SubEnv(JointPRStepSubRLEnv):
 
         selected_nodes = np.zeros(self.p_net.num_nodes, dtype=np.float32)
         selected_nodes[self.selected_p_net_nodes] = 1.  # 标记已经有VNF部署的物理节点
-        #                                                             np.expand_dims(selected_nodes, axis=-1).shape : [100,1]
-        # node_data = np.concatenate((node_data, edge_aggr_data, np.expand_dims(selected_nodes, axis=-1)), axis=-1)
-        node_data = np.concatenate((node_data, np.expand_dims(selected_nodes, axis=-1)), axis=-1)
+        # ``trust`` is already bounded in [0, 1] by PhysicalNetwork.  It is
+        # appended only when requested so the reward-only baseline retains
+        # precisely its original feature layout and checkpoint compatibility.
+        state_features = [node_data]
+        if self.include_trust_in_state:
+            trust = np.asarray(
+                [self.p_net.nodes[node_id].get('trust', 0.0)
+                 for node_id in self.p_net.nodes],
+                dtype=np.float32,
+            ).reshape(-1, 1)
+            trust = np.clip(trust, 0.0, 1.0)
+            state_features.append(trust)
+        state_features.append(np.expand_dims(selected_nodes, axis=-1))
+        node_data = np.concatenate(state_features, axis=-1)
         # edge_index
         edge_index = self.obs_handler.get_link_index_obs(self.p_net)
         edge_aggr_data = self.obs_handler.get_edge_aggr_attrs_obs(self.p_net,

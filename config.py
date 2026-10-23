@@ -71,6 +71,8 @@ env_arg.add_argument('--normalize_ts', type=str2bool, default=False,
                      help='Normalize the PPO security score by mapped components')
 env_arg.add_argument('--incremental_security_shaping', type=str2bool, default=False,
                      help='Use incremental normalized-security reward shaping')
+env_arg.add_argument('--include_trust_in_state', type=str2bool, default=False,
+                     help='Append each physical node\'s dynamic trust in [0, 1] to the PPO state; requires training a new model')
 env_arg.add_argument('--reward_failure_penalty', type=float, default=1.0,
                      help='Base terminal penalty used by incremental security shaping')
 env_arg.add_argument('--security_reward_weight', type=float, default=-1.0,
