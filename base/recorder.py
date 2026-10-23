@@ -321,6 +321,10 @@ class Recorder:
 
     def save_records(self, fname):
         """Save the records to a csv file."""
+        # The run directory can be created externally after Recorder is
+        # constructed.  Ensure that the nested records directory exists at
+        # the point of writing rather than silently losing the final summary.
+        os.makedirs(self.record_dir, exist_ok=True)
         save_path = os.path.join(self.record_dir, fname)
         pd_records = pd.DataFrame(self.memory)
         pd_records.to_csv(save_path, index=False)

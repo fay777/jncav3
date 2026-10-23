@@ -88,12 +88,16 @@ class APPFDSIAdaptedSolver(_SecurityAwareSequentialSolver):
 
     def _candidate_score(self, p_net, p_node_id, v_net, v_node_id):
         offered = float(p_net.nodes[p_node_id]['security'])
-        required = float(v_net.nodes[v_node_id]['security'])
-        # Lower is preferred: high capability per unit residual load, while
-        # retaining a mild penalty for unnecessary security over-provisioning.
-        surplus = (offered - required) / max(offered, 1.0)
+        max_level = max(
+            float(attr.high) for attr in self.controller.node_security_attrs
+        )
         pressure = self._resource_pressure(p_net, p_node_id, v_net, v_node_id)
-        return 0.65 * pressure + 0.35 * surplus
+        # APPF-DSI-inspired primary placement is capability-first: among
+        # already feasible nodes, preserve a preference for higher security
+        # capability and use resource pressure only as a secondary criterion.
+        # The common mapper sorts ascending, hence the negative capability.
+        capability = offered / max(max_level, 1.0)
+        return (-capability, pressure, p_node_id)
 
 
 @registry.register(
@@ -121,4 +125,6 @@ class SSDOSEAdaptedSolver(_SecurityAwareSequentialSolver):
         )
         overflow = (offered - required) / max(max_level, 1.0)
         pressure = self._resource_pressure(p_net, p_node_id, v_net, v_node_id)
-        return 0.80 * overflow + 0.20 * pressure
+        # SSD-OSE-inspired placement explicitly eliminates excess security
+        # capability before considering residual-resource pressure.
+        return (overflow, pressure, p_node_id)
