@@ -52,6 +52,15 @@ class Solver:
         # action
         self.allow_rejection = kwargs.get('allow_rejection', False)
         self.allow_revocable = kwargs.get('allow_revocable', False)
+        # Environment-level reward/state controls.  They must be retained in
+        # ``basic_config`` because every per-request SubEnv is constructed
+        # from that dictionary rather than directly from the top-level CLI
+        # configuration.
+        self.normalize_ts = kwargs.get('normalize_ts', False)
+        self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
+        self.include_trust_in_state = kwargs.get('include_trust_in_state', False)
+        self.reward_failure_penalty = kwargs.get('reward_failure_penalty', 1.0)
+        self.security_reward_weight = kwargs.get('security_reward_weight', -1.0)
         self.basic_config = {
             'reusable': self.reusable,
             'node_ranking_method': self.node_ranking_method,
@@ -60,7 +69,12 @@ class Solver:
             'shortest_method': self.shortest_method,
             'k_shortest': self.k_shortest,
             'allow_revocable': self.allow_revocable,
-            'allow_revocable': self.allow_revocable
+            'allow_rejection': self.allow_rejection,
+            'normalize_ts': self.normalize_ts,
+            'incremental_security_shaping': self.incremental_security_shaping,
+            'include_trust_in_state': self.include_trust_in_state,
+            'reward_failure_penalty': self.reward_failure_penalty,
+            'security_reward_weight': self.security_reward_weight,
         }
         # self.env_info = dict(
         #     num_p_net_node_attrs = len(self.p_net.get_node_attrs(['resource'])), # , 'extrema'
