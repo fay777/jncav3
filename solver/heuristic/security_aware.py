@@ -63,11 +63,30 @@ class _SecurityAwareSequentialSolver(Solver):
                     deployed = True
                     break
 
+                # ``place_and_route`` tentatively reserves node/link resources
+                # before it discovers that a route is infeasible.  A failed
+                # candidate must therefore be completely removed before trying
+                # the next one.  Besides preventing phantom resource
+                # consumption, this also clears the failure flags left by the
+                # tentative route attempt.
+                if v_node_id in solution['node_slots']:
+                    self.controller.undo_place_and_route(
+                        v_net, p_net, v_node_id, p_node_id, solution
+                    )
+                solution['place_result'] = True
+                solution['route_result'] = True
+
             if not deployed:
                 solution['route_result'] = False
                 return solution
 
+        # A request is successful only when every VNF has been placed and all
+        # links have been routed.  Explicitly restore every status field so a
+        # transient failure from a discarded candidate cannot pollute summary
+        # metrics or security accounting.
         solution['result'] = True
+        solution['place_result'] = True
+        solution['route_result'] = True
         return solution
 
 
