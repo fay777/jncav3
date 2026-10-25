@@ -63,6 +63,8 @@ env_arg.add_argument('--security_ssi_threshold', type=float, default=4.0,
                      help='SSI threshold for security-sensitive SFCs')
 env_arg.add_argument('--security_max_level', type=float, default=6.0,
                      help='Maximum configured static security level')
+env_arg.add_argument('--lcb_z_score', type=float, default=1.645,
+                     help='One-sided Wilson LCB z score for post-hoc reliability metrics')
 env_arg.add_argument('--trust_security_weight', type=float, default=0.6,
                      help='Weight of normalized static security in trust')
 env_arg.add_argument('--trust_feedback_weight', type=float, default=0.4,

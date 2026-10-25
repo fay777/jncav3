@@ -174,8 +174,13 @@ class Solution(ClassDict):
         # trust, then persisted unchanged in the request record.
         self.security_snapshot_taken = False
         self.security_sensitive = False
+        self.node_static_security_satisfied = False
         self.node_security_satisfied = False
         self.link_security_satisfied = False
+        self.static_security_satisfied = False
+        self.min_node_reliability_lcb = 0.0
+        self.lcb_0_7_satisfied = False
+        self.lcb_0_8_satisfied = False
         self.security_requirements_satisfied = False
 
     def is_feasible(self):

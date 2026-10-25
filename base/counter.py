@@ -23,6 +23,28 @@ class Counter(object):
         self.link_resource_attrs = [l_attr for l_attr in self.all_link_attrs if l_attr.type == 'resource']
         self.security_ssi_threshold = kwargs.get('security_ssi_threshold', 4.0)
         self.security_max_level = kwargs.get('security_max_level', 6.0)
+        self.lcb_z_score = kwargs.get('lcb_z_score', 1.645)
+
+    def _wilson_lower_bound(self, successes: int, attempts: int) -> float:
+        """Return a one-sided Wilson lower bound for a Bernoulli success rate.
+
+        A node with no completed historical attempts has no empirical
+        reliability evidence and receives an LCB of zero.  This statistic is
+        reporting-only: it never changes feasibility, reward, or observation.
+        """
+        attempts = int(attempts)
+        successes = int(successes)
+        if attempts <= 0:
+            return 0.0
+        successes = min(max(successes, 0), attempts)
+        rate = successes / attempts
+        z2 = self.lcb_z_score ** 2
+        denominator = 1.0 + z2 / attempts
+        centre = rate + z2 / (2.0 * attempts)
+        margin = self.lcb_z_score * np.sqrt(
+            rate * (1.0 - rate) / attempts + z2 / (4.0 * attempts ** 2)
+        )
+        return float(max(0.0, min(1.0, (centre - margin) / denominator)))
 
     def evaluate_security_requirements(
             self, v_net: VirtualNetwork, p_net: PhysicalNetwork, solution: Solution
@@ -32,13 +54,21 @@ class Counter(object):
         complete_node_mapping = len(solution['node_slots']) == v_net.num_nodes
         complete_link_mapping = len(solution['link_paths']) == v_net.num_links
 
+        node_static_security_satisfied = complete_node_mapping
         node_security_satisfied = complete_node_mapping
-        if node_security_satisfied:
+        node_lcbs = []
+        if complete_node_mapping:
             for v_node_id, p_node_id in solution['node_slots'].items():
+                required_security = v_net.nodes[v_node_id].get('security', 0.0)
+                if p_net.nodes[p_node_id].get('security', 0.0) < required_security:
+                    node_static_security_satisfied = False
                 required_trust = v_net.nodes[v_node_id].get('security', 0.0) / self.security_max_level
                 if p_net.nodes[p_node_id].get('trust', 0.0) < required_trust:
                     node_security_satisfied = False
-                    break
+                node_lcbs.append(self._wilson_lower_bound(
+                    p_net.nodes[p_node_id].get('trust_success_count', 0),
+                    p_net.nodes[p_node_id].get('trust_attempt_count', 0),
+                ))
 
         link_security_satisfied = complete_link_mapping
         if link_security_satisfied:
@@ -51,10 +81,20 @@ class Counter(object):
                 if not link_security_satisfied:
                     break
 
+        min_node_reliability_lcb = min(node_lcbs) if node_lcbs else 0.0
+        static_security_satisfied = bool(
+            solution['result'] and node_static_security_satisfied and link_security_satisfied
+        )
+
         return {
             'security_sensitive': security_sensitive,
+            'node_static_security_satisfied': node_static_security_satisfied,
             'node_security_satisfied': node_security_satisfied,
             'link_security_satisfied': link_security_satisfied,
+            'static_security_satisfied': static_security_satisfied,
+            'min_node_reliability_lcb': min_node_reliability_lcb,
+            'lcb_0_7_satisfied': bool(static_security_satisfied and min_node_reliability_lcb >= 0.7),
+            'lcb_0_8_satisfied': bool(static_security_satisfied and min_node_reliability_lcb >= 0.8),
             'security_requirements_satisfied': bool(
                 solution['result'] and node_security_satisfied and link_security_satisfied
             ),
@@ -335,13 +375,75 @@ class Counter(object):
             pd.Series(False, index=arrival_records.index, dtype=bool),
         ).fillna(False).astype(bool)
         deployed_sensitive = security_sensitive & deployed
-        summary_info['security_sensitive_request_count'] = int(deployed_sensitive.sum())
+        summary_info['security_sensitive_arrival_count'] = int(security_sensitive.sum())
+        summary_info['security_sensitive_deployed_count'] = int(deployed_sensitive.sum())
+        summary_info['security_sensitive_acceptance_rate'] = (
+            summary_info['security_sensitive_deployed_count'] / summary_info['security_sensitive_arrival_count']
+            if summary_info['security_sensitive_arrival_count'] else 0.0
+        )
+        # Backward-compatible name: historically this counted successfully
+        # deployed sensitive requests, not all sensitive arrivals.
+        summary_info['security_sensitive_request_count'] = summary_info['security_sensitive_deployed_count']
         summary_info['security_sensitive_success_count'] = int(
             (deployed_sensitive & security_satisfied).sum()
         )
         summary_info['srsr'] = (
             summary_info['security_sensitive_success_count'] / summary_info['security_sensitive_request_count']
             if summary_info['security_sensitive_request_count'] else 0.0
+        )
+        # ``srsr`` is retained only for compatibility with old result files.
+        # Revised reporting separates hard static compliance from empirical
+        # reliability and also reports an arrival-based metric that cannot be
+        # inflated merely by rejecting difficult requests.
+        static_security = arrival_records.get(
+            'static_security_satisfied',
+            pd.Series(False, index=arrival_records.index, dtype=bool),
+        ).fillna(False).astype(bool)
+        lcb_0_7 = arrival_records.get(
+            'lcb_0_7_satisfied',
+            pd.Series(False, index=arrival_records.index, dtype=bool),
+        ).fillna(False).astype(bool)
+        lcb_0_8 = arrival_records.get(
+            'lcb_0_8_satisfied',
+            pd.Series(False, index=arrival_records.index, dtype=bool),
+        ).fillna(False).astype(bool)
+        min_node_lcb = pd.to_numeric(
+            arrival_records.get(
+                'min_node_reliability_lcb',
+                pd.Series(0.0, index=arrival_records.index, dtype=float),
+            ),
+            errors='coerce',
+        ).fillna(0.0)
+        deployed_denominator = summary_info['security_sensitive_deployed_count']
+        arrival_denominator = summary_info['security_sensitive_arrival_count']
+        summary_info['static_security_satisfied_count'] = int(
+            (deployed_sensitive & static_security).sum()
+        )
+        summary_info['static_security_satisfaction_rate'] = (
+            summary_info['static_security_satisfied_count'] / deployed_denominator
+            if deployed_denominator else 0.0
+        )
+        summary_info['lcb_0_7_satisfied_count'] = int((deployed_sensitive & lcb_0_7).sum())
+        summary_info['lcb_0_7_rate'] = (
+            summary_info['lcb_0_7_satisfied_count'] / deployed_denominator
+            if deployed_denominator else 0.0
+        )
+        summary_info['lcb_0_8_satisfied_count'] = int((deployed_sensitive & lcb_0_8).sum())
+        summary_info['lcb_0_8_rate'] = (
+            summary_info['lcb_0_8_satisfied_count'] / deployed_denominator
+            if deployed_denominator else 0.0
+        )
+        summary_info['mean_min_node_reliability_lcb'] = (
+            float(min_node_lcb[deployed_sensitive].mean())
+            if deployed_denominator else 0.0
+        )
+        summary_info['reliable_secure_deployment_rate_lcb_0_7'] = (
+            summary_info['lcb_0_7_satisfied_count'] / arrival_denominator
+            if arrival_denominator else 0.0
+        )
+        summary_info['reliable_secure_deployment_rate_lcb_0_8'] = (
+            summary_info['lcb_0_8_satisfied_count'] / arrival_denominator
+            if arrival_denominator else 0.0
         )
         # rc ratio
         summary_info['r2c_ratio'] = records.iloc[-1]['total_revenue'] / records.iloc[-1]['total_cost'] if records.iloc[-1]['total_cost'] else 0

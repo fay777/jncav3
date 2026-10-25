@@ -1,0 +1,5 @@
+method,n_train_seeds,model_epoch_mean,model_epoch_sd,long_term_aver_time_revenue_mean,long_term_aver_time_revenue_sd,time_r2c_ratio_mean,time_r2c_ratio_sd
+EGAT-DPOT (no trust state),5,54.000000,40.987803,3061.826249,10.287576,1.036234,0.036854
+EGAT-DPOT (+ trust state),5,50.000000,43.011626,3061.797478,13.487012,1.007216,0.057101
+A2C-GCN,5,84.000000,59.833101,3012.573470,51.556776,0.979217,0.055367
+TwoStage-GCN-DRL-adapted,5,94.000000,34.351128,3033.495084,46.595917,0.931483,0.022151
