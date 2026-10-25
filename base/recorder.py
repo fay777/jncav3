@@ -1,6 +1,7 @@
 import os
 import csv
 import copy
+import hashlib
 import numpy as np
 import pandas as pd
 from collections import defaultdict, OrderedDict
@@ -326,6 +327,15 @@ class Recorder:
         # the point of writing rather than silently losing the final summary.
         os.makedirs(self.record_dir, exist_ok=True)
         save_path = os.path.join(self.record_dir, fname)
+
+        # Windows commonly rejects paths around 260 characters.  The record
+        # directory is already unique per solver/run, so compacting only the
+        # filename preserves traceability while avoiding a late failure after
+        # a long experiment has otherwise completed.
+        if os.name == 'nt' and len(os.path.abspath(save_path)) >= 240:
+            digest = hashlib.sha1(fname.encode('utf-8')).hexdigest()[:12]
+            save_path = os.path.join(self.record_dir, f'record-{digest}.csv')
+
         pd_records = pd.DataFrame(self.memory)
         pd_records.to_csv(save_path, index=False)
         try:
