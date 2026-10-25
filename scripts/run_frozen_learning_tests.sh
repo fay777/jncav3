@@ -7,6 +7,10 @@ cd "${repo_dir}"
 data_root="${JNCA_BENCHMARK_ROOT:-benchmark_jnca_v1}"
 run_root="${JNCA_TEST_RUN_ROOT:-runs_formal_20261025_learning_test}"
 gpu_list_text="${JNCA_TEST_GPUS:-2 3 4 5 6}"
+egat_no_trust_root="${JNCA_EGAT_NO_TRUST_ROOT:-runs_formal_20261023_fixedmix_corrected}"
+egat_trust_root="${JNCA_EGAT_TRUST_ROOT:-runs_formal_20261023_fixedmix_truststate_corrected}"
+a2c_root="${JNCA_A2C_ROOT:-runs_formal_20261022/a2c_gcn}"
+two_stage_root="${JNCA_TWO_STAGE_ROOT:-runs_formal_20261022/two_stage_gcn_drl_adapted}"
 read -r -a gpu_ids <<< "${gpu_list_text}"
 train_seeds=(1 2 3 4 5)
 test_seeds=(20001 20002 20003 20004 20005)
@@ -82,7 +86,7 @@ run_family() {
 
 run_family \
     egat_no_truststate \
-    runs_formal_20261023_fixedmix_corrected \
+    "${egat_no_trust_root}" \
     gat_seq2seq_ppo \
     --normalize_ts true \
     --incremental_security_shaping true \
@@ -92,7 +96,7 @@ run_family \
 
 run_family \
     egat_truststate \
-    runs_formal_20261023_fixedmix_truststate_corrected \
+    "${egat_trust_root}" \
     gat_seq2seq_ppo \
     --normalize_ts true \
     --incremental_security_shaping true \
@@ -102,7 +106,7 @@ run_family \
 
 run_family \
     a2c_gcn \
-    runs_formal_20261022/a2c_gcn \
+    "${a2c_root}" \
     a2c_gcn_seq2seq \
     --normalize_ts false \
     --incremental_security_shaping false \
@@ -110,7 +114,7 @@ run_family \
 
 run_family \
     twostage_gcn_drl \
-    runs_formal_20261022/two_stage_gcn_drl_adapted \
+    "${two_stage_root}" \
     two_stage_gcn_a2c_adapted \
     --normalize_ts false \
     --incremental_security_shaping false \
