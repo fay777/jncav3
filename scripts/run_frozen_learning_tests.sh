@@ -24,7 +24,21 @@ if [[ ! -d "${data_root}/p_net" || ! -d "${data_root}/test/seed_20001" ]]; then
     exit 1
 fi
 
+if [[ -e "${run_root}" ]]; then
+    echo "Test result directory already exists; refusing to mix or overwrite results: ${run_root}" >&2
+    exit 1
+fi
 mkdir -p "${run_root}/logs"
+
+# Persist the exact validation-selected weights used by this test before any
+# inference starts. The SHA-256 values make the record valid even if the
+# checkpoint directories are moved later.
+JNCA_CHECKPOINT_MANIFEST_PATH="${run_root}/checkpoint_manifest.tsv" \
+JNCA_EGAT_NO_TRUST_ROOT="${egat_no_trust_root}" \
+JNCA_EGAT_TRUST_ROOT="${egat_trust_root}" \
+JNCA_A2C_ROOT="${a2c_root}" \
+JNCA_TWO_STAGE_ROOT="${two_stage_root}" \
+bash scripts/write_checkpoint_manifest.sh
 
 run_family() {
     local tag="$1"
