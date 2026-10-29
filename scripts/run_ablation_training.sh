@@ -7,7 +7,7 @@ cd "${repo_dir}"
 data_root="${JNCA_BENCHMARK_ROOT:-benchmark_jnca_v1}"
 run_root="${JNCA_ABLATION_TRAIN_ROOT:-runs_ablation_20261028_training}"
 gpu_list_text="${JNCA_ABLATION_GPUS:-2 3 4 5 6}"
-variant_list_text="${JNCA_ABLATION_VARIANTS:-no_incremental_shaping adaptive_security_weight no_security_reward legacy_reward}"
+variant_list_text="${JNCA_ABLATION_VARIANTS:-no_incremental_shaping no_security_reward no_efficiency_reward}"
 read -r -a gpu_ids <<< "${gpu_list_text}"
 read -r -a variants <<< "${variant_list_text}"
 train_seeds=(1 2 3 4 5)
@@ -30,7 +30,7 @@ if [[ -e "${run_root}" ]]; then
 fi
 
 mkdir -p "${run_root}/logs"
-printf 'variant,normalize_ts,incremental_security_shaping,security_reward_weight,include_trust_in_state,reward_failure_penalty,num_train_epochs,validation_interval\n' \
+printf 'variant,normalize_ts,incremental_security_shaping,terminal_only_security_reward,security_reward_weight,include_trust_in_state,reward_failure_penalty,num_train_epochs,validation_interval,experiment_role\n' \
     > "${run_root}/ablation_config.csv"
 
 variant_flags() {
@@ -40,37 +40,51 @@ variant_flags() {
             flags=(
                 --normalize_ts true
                 --incremental_security_shaping false
+                --terminal_only_security_reward true
                 --security_reward_weight 0.5
                 --include_trust_in_state true
             )
-            config_row="no_incremental_shaping,true,false,0.5,true,1.0,140,10"
+            config_row="no_incremental_shaping,true,false,true,0.5,true,1.0,140,10,core_component_ablation"
             ;;
         adaptive_security_weight)
             flags=(
                 --normalize_ts true
                 --incremental_security_shaping true
+                --terminal_only_security_reward false
                 --security_reward_weight -1.0
                 --include_trust_in_state true
             )
-            config_row="adaptive_security_weight,true,true,-1.0,true,1.0,140,10"
+            config_row="adaptive_security_weight,true,true,false,-1.0,true,1.0,140,10,supplementary_weight_strategy"
             ;;
         no_security_reward)
             flags=(
                 --normalize_ts true
                 --incremental_security_shaping true
+                --terminal_only_security_reward false
                 --security_reward_weight 0.0
                 --include_trust_in_state true
             )
-            config_row="no_security_reward,true,true,0.0,true,1.0,140,10"
+            config_row="no_security_reward,true,true,false,0.0,true,1.0,140,10,core_component_ablation"
+            ;;
+        no_efficiency_reward)
+            flags=(
+                --normalize_ts true
+                --incremental_security_shaping true
+                --terminal_only_security_reward false
+                --security_reward_weight 1.0
+                --include_trust_in_state true
+            )
+            config_row="no_efficiency_reward,true,true,false,1.0,true,1.0,140,10,core_component_ablation"
             ;;
         legacy_reward)
             flags=(
                 --normalize_ts false
                 --incremental_security_shaping false
+                --terminal_only_security_reward false
                 --security_reward_weight 0.5
                 --include_trust_in_state true
             )
-            config_row="legacy_reward,false,false,0.5,true,1.0,140,10"
+            config_row="legacy_reward,false,false,false,0.5,true,1.0,140,10,supplementary_combined_rollback"
             ;;
         *)
             echo "Unknown ablation variant: ${variant}" >&2

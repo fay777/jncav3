@@ -16,9 +16,11 @@ TEST_METRICS = (
     'static_security_satisfaction_rate',
     'lcb_0_7_rate',
     'lcb_0_8_rate',
+    'lcb_0_9_rate',
     'mean_min_node_reliability_lcb',
     'reliable_secure_deployment_rate_lcb_0_7',
     'reliable_secure_deployment_rate_lcb_0_8',
+    'reliable_secure_deployment_rate_lcb_0_9',
 )
 
 
@@ -117,7 +119,7 @@ def main():
         '- First-Fit、RW-RANK-BFS、MCTS 的原始结果位于 `runs_formal_20261022/baselines_cpu/`。\n'
         '- APPF-DSI-adapted、SSD-OSE-adapted 的修复版原始结果位于 `runs_formal_20261025_security_baselines_fixed/`。\n'
         '- 安全指标列为空表示源实验早于新统计模块。LCB 无法从旧汇总可靠重建，必须加载最佳 checkpoint 后在冻结测试集重新推理。\n'
-        '- 历史 `srsr` 不进入本索引和论文主表；正式安全结果使用静态安全合规率、敏感请求接纳率、LCB-0.7/0.8 和可靠安全部署率。\n',
+        '- 历史 `srsr` 不进入本索引和论文主表；正式安全结果使用静态安全合规率、敏感请求接纳率、LCB-0.7/0.8/0.9 和可靠安全部署率。\n',
         encoding='utf-8',
     )
 

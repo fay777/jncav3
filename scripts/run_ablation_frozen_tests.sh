@@ -8,7 +8,7 @@ data_root="${JNCA_BENCHMARK_ROOT:-benchmark_jnca_v1}"
 train_root="${JNCA_ABLATION_TRAIN_ROOT:-runs_ablation_20261028_training}"
 test_root="${JNCA_ABLATION_TEST_ROOT:-runs_ablation_20261028_frozen_test}"
 gpu_list_text="${JNCA_ABLATION_GPUS:-2 3 4 5 6}"
-variant_list_text="${JNCA_ABLATION_VARIANTS:-no_incremental_shaping adaptive_security_weight no_security_reward legacy_reward}"
+variant_list_text="${JNCA_ABLATION_VARIANTS:-no_incremental_shaping no_security_reward no_efficiency_reward}"
 read -r -a gpu_ids <<< "${gpu_list_text}"
 read -r -a variants <<< "${variant_list_text}"
 train_seeds=(1 2 3 4 5)
@@ -41,16 +41,19 @@ variant_flags() {
     local variant="$1"
     case "${variant}" in
         no_incremental_shaping)
-            flags=(--normalize_ts true --incremental_security_shaping false --security_reward_weight 0.5 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping false --terminal_only_security_reward true --security_reward_weight 0.5 --include_trust_in_state true)
             ;;
         adaptive_security_weight)
-            flags=(--normalize_ts true --incremental_security_shaping true --security_reward_weight -1.0 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight -1.0 --include_trust_in_state true)
             ;;
         no_security_reward)
-            flags=(--normalize_ts true --incremental_security_shaping true --security_reward_weight 0.0 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.0 --include_trust_in_state true)
+            ;;
+        no_efficiency_reward)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 1.0 --include_trust_in_state true)
             ;;
         legacy_reward)
-            flags=(--normalize_ts false --incremental_security_shaping false --security_reward_weight 0.5 --include_trust_in_state true)
+            flags=(--normalize_ts false --incremental_security_shaping false --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true)
             ;;
         *)
             echo "Unknown ablation variant: ${variant}" >&2

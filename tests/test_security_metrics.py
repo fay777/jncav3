@@ -33,8 +33,8 @@ class SecurityMetricTests(unittest.TestCase):
             {10: {
                 'security': 5,
                 'trust': 0.9,
-                'trust_success_count': 20,
-                'trust_attempt_count': 20,
+                'trust_success_count': 1000,
+                'trust_attempt_count': 1000,
             }},
             {(10, 10): {'security': 2}},
         )
@@ -51,9 +51,10 @@ class SecurityMetricTests(unittest.TestCase):
         self.assertGreaterEqual(result['min_node_reliability_lcb'], 0.8)
         self.assertTrue(result['lcb_0_7_satisfied'])
         self.assertTrue(result['lcb_0_8_satisfied'])
+        self.assertTrue(result['lcb_0_9_satisfied'])
         # Evaluation is a snapshot and must not update feedback counts.
-        self.assertEqual(p_net.nodes[10]['trust_attempt_count'], 20)
-        self.assertEqual(p_net.nodes[10]['trust_success_count'], 20)
+        self.assertEqual(p_net.nodes[10]['trust_attempt_count'], 1000)
+        self.assertEqual(p_net.nodes[10]['trust_success_count'], 1000)
 
     def test_static_violation_fails_all_revised_security_metrics(self):
         v_net = _Network({0: {'security': 6}}, {}, ssi=6.0)
@@ -70,6 +71,7 @@ class SecurityMetricTests(unittest.TestCase):
         self.assertFalse(result['static_security_satisfied'])
         self.assertFalse(result['lcb_0_7_satisfied'])
         self.assertFalse(result['lcb_0_8_satisfied'])
+        self.assertFalse(result['lcb_0_9_satisfied'])
 
     def test_summary_reports_conditional_and_arrival_based_security_rates(self):
         record = {
@@ -85,6 +87,7 @@ class SecurityMetricTests(unittest.TestCase):
             'static_security_satisfied': True,
             'lcb_0_7_satisfied': True,
             'lcb_0_8_satisfied': False,
+            'lcb_0_9_satisfied': False,
             'min_node_reliability_lcb': 0.75,
             'total_revenue': 10.0,
             'total_cost': 5.0,
@@ -103,9 +106,11 @@ class SecurityMetricTests(unittest.TestCase):
         self.assertEqual(summary['static_security_satisfaction_rate'], 1.0)
         self.assertEqual(summary['lcb_0_7_rate'], 1.0)
         self.assertEqual(summary['lcb_0_8_rate'], 0.0)
+        self.assertEqual(summary['lcb_0_9_rate'], 0.0)
         self.assertEqual(summary['mean_min_node_reliability_lcb'], 0.75)
         self.assertEqual(summary['reliable_secure_deployment_rate_lcb_0_7'], 1.0)
         self.assertEqual(summary['reliable_secure_deployment_rate_lcb_0_8'], 0.0)
+        self.assertEqual(summary['reliable_secure_deployment_rate_lcb_0_9'], 0.0)
 
 
 if __name__ == '__main__':

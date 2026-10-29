@@ -15,9 +15,9 @@
 Wilson 下置信界。默认 `z=1.645`，对应 95% 单侧置信水平；`n=0`
 时 LCB 为 0。当前请求结束后才更新 `s,n`，避免当前请求给自身加分。
 
-`lcb_0_7_rate` 与 `lcb_0_8_rate` 的分母都是成功部署的安全敏感 SFC；
+`lcb_0_7_rate`、`lcb_0_8_rate` 与 `lcb_0_9_rate` 的分母都是成功部署的安全敏感 SFC；
 分子同时要求静态安全合规，且该 SFC 所有映射节点的最小 LCB 分别
-不低于 0.7 或 0.8。`mean_min_node_reliability_lcb` 报告这些 SFC 的
+不低于 0.7、0.8 或 0.9。`mean_min_node_reliability_lcb` 报告这些 SFC 的
 最小节点 LCB 的均值；当两个离散阈值通过率都很低时，该连续指标仍能
 区分方法，并可用于解释阈值敏感性。
 
@@ -25,7 +25,8 @@ Wilson 下置信界。默认 `z=1.645`，对应 95% 单侧置信水平；`n=0`
 
 `security_sensitive_acceptance_rate` 衡量所有到达的安全敏感请求中成功
 部署的比例。`reliable_secure_deployment_rate_lcb_0_7` 和
-`reliable_secure_deployment_rate_lcb_0_8` 以所有到达的安全敏感请求
+`reliable_secure_deployment_rate_lcb_0_8`、
+`reliable_secure_deployment_rate_lcb_0_9` 以所有到达的安全敏感请求
 为分母，同时反映接纳能力和历史可靠性，避免通过拒绝困难请求人为抬高
 条件式 LCB 指标。
 

@@ -110,8 +110,8 @@ grep -R -E 'Traceback|Load failed|RuntimeError|FileNotFoundError|KeyError' \
 - 总接纳率；
 - 安全敏感请求接纳率；
 - 静态安全合规率；
-- `LCB-0.7` 与 `LCB-0.8` 条件满足率；
-- `LCB-0.7` 与 `LCB-0.8` 可靠安全部署率；
+- `LCB-0.7`、`LCB-0.8` 与 `LCB-0.9` 条件满足率；
+- `LCB-0.7`、`LCB-0.8` 与 `LCB-0.9` 可靠安全部署率；
 - `mean_min_node_reliability_lcb`；
 - `LTA Time Revenue`；
 - `Time R2C`。

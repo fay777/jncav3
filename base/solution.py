@@ -181,6 +181,7 @@ class Solution(ClassDict):
         self.min_node_reliability_lcb = 0.0
         self.lcb_0_7_satisfied = False
         self.lcb_0_8_satisfied = False
+        self.lcb_0_9_satisfied = False
         self.security_requirements_satisfied = False
 
     def is_feasible(self):

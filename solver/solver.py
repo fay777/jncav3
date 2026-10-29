@@ -58,6 +58,7 @@ class Solver:
         # configuration.
         self.normalize_ts = kwargs.get('normalize_ts', False)
         self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
+        self.terminal_only_security_reward = kwargs.get('terminal_only_security_reward', False)
         self.include_trust_in_state = kwargs.get('include_trust_in_state', False)
         self.reward_failure_penalty = kwargs.get('reward_failure_penalty', 1.0)
         self.security_reward_weight = kwargs.get('security_reward_weight', -1.0)
@@ -72,6 +73,7 @@ class Solver:
             'allow_rejection': self.allow_rejection,
             'normalize_ts': self.normalize_ts,
             'incremental_security_shaping': self.incremental_security_shaping,
+            'terminal_only_security_reward': self.terminal_only_security_reward,
             'include_trust_in_state': self.include_trust_in_state,
             'reward_failure_penalty': self.reward_failure_penalty,
             'security_reward_weight': self.security_reward_weight,

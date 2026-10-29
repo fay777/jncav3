@@ -14,6 +14,7 @@ class SubEnv(JointPRStepSubRLEnv):
         # supplied to a new training run.
         self.normalize_ts = kwargs.get('normalize_ts', False)
         self.incremental_security_shaping = kwargs.get('incremental_security_shaping', False)
+        self.terminal_only_security_reward = kwargs.get('terminal_only_security_reward', False)
         # Optional ablation: expose the current, pre-feedback per-node trust
         # value to the policy.  The default keeps the reward-only trust design
         # and therefore preserves the former observation space exactly.
@@ -66,6 +67,24 @@ class SubEnv(JointPRStepSubRLEnv):
             else:
                 # Cancel previously accrued security shaping on a failed SFC.
                 reward = -self.reward_failure_penalty - omega * self.previous_security_score
+            self.solution['v_net_reward'] = reward
+            return reward
+
+        if self.terminal_only_security_reward:
+            if not self.normalize_ts:
+                raise ValueError('terminal_only_security_reward requires normalize_ts=true')
+
+            # Component ablation for incremental shaping.  Intermediate
+            # placements receive no security or efficiency reward; a complete
+            # SFC receives the same final normalized-security and efficiency
+            # objective as the full model.  This keeps the objective fixed and
+            # changes only whether dense incremental feedback is available.
+            if success:
+                reward = omega * ts + phi * (revenue / cost)
+            elif solution['place_result'] and solution['route_result']:
+                reward = 0.0
+            else:
+                reward = -self.reward_failure_penalty
             self.solution['v_net_reward'] = reward
             return reward
 

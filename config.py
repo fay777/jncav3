@@ -73,6 +73,8 @@ env_arg.add_argument('--normalize_ts', type=str2bool, default=False,
                      help='Normalize the PPO security score by mapped components')
 env_arg.add_argument('--incremental_security_shaping', type=str2bool, default=False,
                      help='Use incremental normalized-security reward shaping')
+env_arg.add_argument('--terminal_only_security_reward', type=str2bool, default=False,
+                     help='Pay normalized security reward only after a complete SFC; intended for the no-shaping ablation')
 env_arg.add_argument('--include_trust_in_state', type=str2bool, default=False,
                      help='Append each physical node\'s dynamic trust in [0, 1] to the PPO state; requires training a new model')
 env_arg.add_argument('--reward_failure_penalty', type=float, default=1.0,
@@ -249,6 +251,10 @@ def check_config(config):
     assert config.validation_interval >= 1, 'validation_interval must be at least 1.'
     if config.incremental_security_shaping:
         assert config.normalize_ts, 'incremental_security_shaping requires normalize_ts=true.'
+    if config.terminal_only_security_reward:
+        assert config.normalize_ts, 'terminal_only_security_reward requires normalize_ts=true.'
+        assert not config.incremental_security_shaping, \
+            'terminal_only_security_reward and incremental_security_shaping are mutually exclusive.'
     assert -1.0 <= config.security_reward_weight <= 1.0, \
         'security_reward_weight must be -1 or lie in [0, 1].'
     if config.v_nets_dataset_path:

@@ -95,6 +95,7 @@ class Counter(object):
             'min_node_reliability_lcb': min_node_reliability_lcb,
             'lcb_0_7_satisfied': bool(static_security_satisfied and min_node_reliability_lcb >= 0.7),
             'lcb_0_8_satisfied': bool(static_security_satisfied and min_node_reliability_lcb >= 0.8),
+            'lcb_0_9_satisfied': bool(static_security_satisfied and min_node_reliability_lcb >= 0.9),
             'security_requirements_satisfied': bool(
                 solution['result'] and node_security_satisfied and link_security_satisfied
             ),
@@ -407,6 +408,10 @@ class Counter(object):
             'lcb_0_8_satisfied',
             pd.Series(False, index=arrival_records.index, dtype=bool),
         ).fillna(False).astype(bool)
+        lcb_0_9 = arrival_records.get(
+            'lcb_0_9_satisfied',
+            pd.Series(False, index=arrival_records.index, dtype=bool),
+        ).fillna(False).astype(bool)
         min_node_lcb = pd.to_numeric(
             arrival_records.get(
                 'min_node_reliability_lcb',
@@ -433,6 +438,11 @@ class Counter(object):
             summary_info['lcb_0_8_satisfied_count'] / deployed_denominator
             if deployed_denominator else 0.0
         )
+        summary_info['lcb_0_9_satisfied_count'] = int((deployed_sensitive & lcb_0_9).sum())
+        summary_info['lcb_0_9_rate'] = (
+            summary_info['lcb_0_9_satisfied_count'] / deployed_denominator
+            if deployed_denominator else 0.0
+        )
         summary_info['mean_min_node_reliability_lcb'] = (
             float(min_node_lcb[deployed_sensitive].mean())
             if deployed_denominator else 0.0
@@ -443,6 +453,10 @@ class Counter(object):
         )
         summary_info['reliable_secure_deployment_rate_lcb_0_8'] = (
             summary_info['lcb_0_8_satisfied_count'] / arrival_denominator
+            if arrival_denominator else 0.0
+        )
+        summary_info['reliable_secure_deployment_rate_lcb_0_9'] = (
+            summary_info['lcb_0_9_satisfied_count'] / arrival_denominator
             if arrival_denominator else 0.0
         )
         # rc ratio
