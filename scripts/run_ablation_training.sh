@@ -30,7 +30,7 @@ if [[ -e "${run_root}" ]]; then
 fi
 
 mkdir -p "${run_root}/logs"
-printf 'variant,normalize_ts,incremental_security_shaping,terminal_only_security_reward,security_reward_weight,include_trust_in_state,reward_failure_penalty,num_train_epochs,validation_interval,experiment_role\n' \
+printf 'variant,normalize_ts,incremental_security_shaping,terminal_only_security_reward,security_reward_weight,include_trust_in_state,graph_encoder,use_lstm,reward_failure_penalty,num_train_epochs,validation_interval,experiment_role\n' \
     > "${run_root}/ablation_config.csv"
 
 variant_flags() {
@@ -43,8 +43,10 @@ variant_flags() {
                 --terminal_only_security_reward true
                 --security_reward_weight 0.5
                 --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm true
             )
-            config_row="no_incremental_shaping,true,false,true,0.5,true,1.0,140,10,core_component_ablation"
+            config_row="no_incremental_shaping,true,false,true,0.5,true,egat,true,1.0,140,10,core_component_ablation"
             ;;
         adaptive_security_weight)
             flags=(
@@ -53,8 +55,10 @@ variant_flags() {
                 --terminal_only_security_reward false
                 --security_reward_weight -1.0
                 --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm true
             )
-            config_row="adaptive_security_weight,true,true,false,-1.0,true,1.0,140,10,supplementary_weight_strategy"
+            config_row="adaptive_security_weight,true,true,false,-1.0,true,egat,true,1.0,140,10,supplementary_weight_strategy"
             ;;
         no_security_reward)
             flags=(
@@ -63,8 +67,10 @@ variant_flags() {
                 --terminal_only_security_reward false
                 --security_reward_weight 0.0
                 --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm true
             )
-            config_row="no_security_reward,true,true,false,0.0,true,1.0,140,10,core_component_ablation"
+            config_row="no_security_reward,true,true,false,0.0,true,egat,true,1.0,140,10,core_component_ablation"
             ;;
         no_efficiency_reward)
             flags=(
@@ -73,8 +79,34 @@ variant_flags() {
                 --terminal_only_security_reward false
                 --security_reward_weight 1.0
                 --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm true
             )
-            config_row="no_efficiency_reward,true,true,false,1.0,true,1.0,140,10,core_component_ablation"
+            config_row="no_efficiency_reward,true,true,false,1.0,true,egat,true,1.0,140,10,core_component_ablation"
+            ;;
+        egat_to_gcn)
+            flags=(
+                --normalize_ts true
+                --incremental_security_shaping true
+                --terminal_only_security_reward false
+                --security_reward_weight 0.5
+                --include_trust_in_state true
+                --graph_encoder gcn
+                --use_lstm true
+            )
+            config_row="egat_to_gcn,true,true,false,0.5,true,gcn,true,1.0,140,10,core_architecture_ablation"
+            ;;
+        without_lstm)
+            flags=(
+                --normalize_ts true
+                --incremental_security_shaping true
+                --terminal_only_security_reward false
+                --security_reward_weight 0.5
+                --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm false
+            )
+            config_row="without_lstm,true,true,false,0.5,true,egat,false,1.0,140,10,core_architecture_ablation"
             ;;
         legacy_reward)
             flags=(
@@ -83,8 +115,10 @@ variant_flags() {
                 --terminal_only_security_reward false
                 --security_reward_weight 0.5
                 --include_trust_in_state true
+                --graph_encoder egat
+                --use_lstm true
             )
-            config_row="legacy_reward,false,false,false,0.5,true,1.0,140,10,supplementary_combined_rollback"
+            config_row="legacy_reward,false,false,false,0.5,true,egat,true,1.0,140,10,supplementary_combined_rollback"
             ;;
         *)
             echo "Unknown ablation variant: ${variant}" >&2

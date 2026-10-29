@@ -43,7 +43,9 @@ class GATSeq2SeqPPOSolver(InstanceAgent, PPOSolver):
             embedding_dim=self.embedding_dim,
             num_lstm_layers=kwargs.get('num_layers', 2),
             num_egat_layers=kwargs.get('num_gnn_layers', 2),
-            num_attention_heads=kwargs.get('num_attention_heads', 4)).to(self.device)
+            num_attention_heads=kwargs.get('num_attention_heads', 4),
+            graph_encoder=kwargs.get('graph_encoder', 'egat'),
+            use_lstm=kwargs.get('use_lstm', True)).to(self.device)
         self.optimizer = torch.optim.Adam([
                 {'params': self.policy.actor.parameters(), 'lr': self.lr_actor},
                 {'params': self.policy.critic.parameters(), 'lr': self.lr_critic},

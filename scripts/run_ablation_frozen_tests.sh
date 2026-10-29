@@ -41,19 +41,25 @@ variant_flags() {
     local variant="$1"
     case "${variant}" in
         no_incremental_shaping)
-            flags=(--normalize_ts true --incremental_security_shaping false --terminal_only_security_reward true --security_reward_weight 0.5 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping false --terminal_only_security_reward true --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder egat --use_lstm true)
             ;;
         adaptive_security_weight)
-            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight -1.0 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight -1.0 --include_trust_in_state true --graph_encoder egat --use_lstm true)
             ;;
         no_security_reward)
-            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.0 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.0 --include_trust_in_state true --graph_encoder egat --use_lstm true)
             ;;
         no_efficiency_reward)
-            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 1.0 --include_trust_in_state true)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 1.0 --include_trust_in_state true --graph_encoder egat --use_lstm true)
+            ;;
+        egat_to_gcn)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder gcn --use_lstm true)
+            ;;
+        without_lstm)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder egat --use_lstm false)
             ;;
         legacy_reward)
-            flags=(--normalize_ts false --incremental_security_shaping false --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true)
+            flags=(--normalize_ts false --incremental_security_shaping false --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder egat --use_lstm true)
             ;;
         *)
             echo "Unknown ablation variant: ${variant}" >&2

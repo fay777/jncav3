@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GATConv, GCNConv
 from torch_geometric.utils import scatter
 
 
@@ -43,22 +43,48 @@ class PaperEGATEncoder(nn.Module):
         return self.layer2(x, graph.edge_index, graph.edge_attr)
 
 
+class PaperGCNEncoder(nn.Module):
+    """Two-layer topology-only GCN used for the EGAT architecture ablation.
+
+    It preserves the EGAT encoder's depth and output dimension while removing
+    multi-head attention and edge-attribute conditioning.  All downstream
+    policy, reward, masking, and optimization logic therefore remains fixed.
+    """
+    def __init__(self, input_dim, output_dim, hidden_dim=64):
+        super().__init__()
+        self.layer1 = GCNConv(input_dim, hidden_dim)
+        self.layer2 = GCNConv(hidden_dim, output_dim)
+
+    def forward(self, graph):
+        x = F.elu(self.layer1(graph.x, graph.edge_index))
+        return self.layer2(x, graph.edge_index)
+
+
 class ActorCritic(nn.Module):
     
     def __init__(self, p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                  v_net_feature_dim, embedding_dim=64, num_lstm_layers=2,
-                 num_egat_layers=2, num_attention_heads=4):
+                 num_egat_layers=2, num_attention_heads=4,
+                 graph_encoder='egat', use_lstm=True):
         super(ActorCritic, self).__init__()
         # self.encoder = Encoder(v_net_feature_dim, embedding_dim=embedding_dim)
         self.emb = nn.Linear(v_net_feature_dim, embedding_dim)
-        self.encoder = nn.LSTM(input_size=embedding_dim, hidden_size=embedding_dim,
-                               num_layers=num_lstm_layers, bidirectional=False)
+        self.use_lstm = bool(use_lstm)
+        self.num_lstm_layers = num_lstm_layers
+        if self.use_lstm:
+            self.encoder = nn.LSTM(input_size=embedding_dim, hidden_size=embedding_dim,
+                                   num_layers=num_lstm_layers, bidirectional=False)
+        else:
+            self.encoder = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+            )
         self.actor = Actor(p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                            v_net_feature_dim, embedding_dim, num_lstm_layers, num_egat_layers,
-                           num_attention_heads)
+                           num_attention_heads, graph_encoder, self.use_lstm)
         self.critic = Critic(p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                              v_net_feature_dim, embedding_dim, num_lstm_layers, num_egat_layers,
-                             num_attention_heads)
+                             num_attention_heads, graph_encoder, self.use_lstm)
         self._last_hidden_state = None
         self._last_hidden_cell = None
         self.v_net_feature_dim = v_net_feature_dim
@@ -68,7 +94,15 @@ class ActorCritic(nn.Module):
         x = obs['v_net_x']
         x = x.permute(1, 0, 2)
         x = F.relu(self.emb(x))
-        outputs, (hidden_state, cell) = self.encoder(x)
+        if self.use_lstm:
+            outputs, (hidden_state, cell) = self.encoder(x)
+        else:
+            # Position-wise transformation followed by permutation-invariant
+            # mean pooling removes recurrent order modelling while retaining
+            # the tensor interface required by the same attention policy.
+            outputs = self.encoder(x)
+            pooled = outputs.mean(dim=0, keepdim=True)
+            hidden_state = pooled.repeat(self.num_lstm_layers, 1, 1)
         self._last_hidden_state = hidden_state
         self._last_hidden_cell = torch.zeros_like(hidden_state)
         return outputs
@@ -93,13 +127,15 @@ class Actor(nn.Module):
 
     def __init__(self, p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                  v_net_feature_dim, embedding_dim=64, num_lstm_layers=2, num_egat_layers=2,
-                 num_attention_heads=4):
+                 num_attention_heads=4, graph_encoder='egat', use_lstm=True):
         super(Actor, self).__init__()
         self.decoder = Decoder(p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                                embedding_dim=embedding_dim,
                                num_lstm_layers=num_lstm_layers,
                                num_egat_layers=num_egat_layers,
-                               num_attention_heads=num_attention_heads)
+                               num_attention_heads=num_attention_heads,
+                               graph_encoder=graph_encoder,
+                               use_lstm=use_lstm)
 
     def forward(self, obs):
         """Return logits of actions"""
@@ -110,13 +146,15 @@ class Critic(nn.Module):
 
     def __init__(self, p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                  v_net_feature_dim, embedding_dim=64, num_lstm_layers=2, num_egat_layers=2,
-                 num_attention_heads=4):
+                 num_attention_heads=4, graph_encoder='egat', use_lstm=True):
         super(Critic, self).__init__()
         self.decoder = Decoder(p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
                                embedding_dim=embedding_dim,
                                num_lstm_layers=num_lstm_layers,
                                num_egat_layers=num_egat_layers,
-                               num_attention_heads=num_attention_heads)
+                               num_attention_heads=num_attention_heads,
+                               graph_encoder=graph_encoder,
+                               use_lstm=use_lstm)
 
     def forward(self, obs):
         """Return logits of actions"""
@@ -144,22 +182,36 @@ class Decoder(nn.Module):
     
     def __init__(self, p_net_num_nodes, feature_dim, p_net_edge_feature_dim,
                  embedding_dim=64, num_lstm_layers=2, num_egat_layers=2,
-                 num_attention_heads=4):
+                 num_attention_heads=4, graph_encoder='egat', use_lstm=True):
         super(Decoder, self).__init__()
         self.emb = nn.Embedding(p_net_num_nodes + 1, embedding_dim)
         self.att = Attention(embedding_dim)
         if num_egat_layers != 2:
-            raise ValueError('PaperEGATEncoder implements the paper-specified two EGAT layers.')
-        self.gat = PaperEGATEncoder(feature_dim, embedding_dim,
-                                    edge_dim=p_net_edge_feature_dim,
-                                    hidden_dim=embedding_dim,
-                                    heads=num_attention_heads)
+            raise ValueError('The controlled graph-encoder ablation requires two GNN layers.')
+        if graph_encoder == 'egat':
+            self.gat = PaperEGATEncoder(feature_dim, embedding_dim,
+                                        edge_dim=p_net_edge_feature_dim,
+                                        hidden_dim=embedding_dim,
+                                        heads=num_attention_heads)
+        elif graph_encoder == 'gcn':
+            self.gat = PaperGCNEncoder(feature_dim, embedding_dim,
+                                       hidden_dim=embedding_dim)
+        else:
+            raise ValueError(f'Unsupported graph_encoder: {graph_encoder}')
         self.mlp = nn.Sequential(
             nn.Linear(embedding_dim, 1),
             nn.Flatten()
         )
 
-        self.lstm = nn.LSTM(embedding_dim, embedding_dim, num_layers=num_lstm_layers)
+        self.use_lstm = bool(use_lstm)
+        self.num_lstm_layers = num_lstm_layers
+        if self.use_lstm:
+            self.lstm = nn.LSTM(embedding_dim, embedding_dim, num_layers=num_lstm_layers)
+        else:
+            self.lstm = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.Tanh(),
+            )
 
     def forward(self, obs):
         """
@@ -183,8 +235,12 @@ class Decoder(nn.Module):
         context, attention = self.att(hidden_state[-1:], encoder_outputs, mask)
 
         decoder_input = p_node_emb + context
-        outputs, (hidden_state, hidden_cell) = self.lstm(
-            decoder_input, (hidden_state, torch.zeros_like(hidden_state)))
+        if self.use_lstm:
+            outputs, (hidden_state, hidden_cell) = self.lstm(
+                decoder_input, (hidden_state, torch.zeros_like(hidden_state)))
+        else:
+            outputs = self.lstm(decoder_input)
+            hidden_state = outputs.repeat(self.num_lstm_layers, 1, 1)
 
         p_node_embeddings = p_node_embeddings + hidden_state[-1].unsqueeze(1)
         logits = self.mlp(p_node_embeddings)

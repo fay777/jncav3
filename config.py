@@ -97,6 +97,11 @@ solver_arg.add_argument('--allow_revocable', type=str2bool, default=False, help=
 solver_arg.add_argument('--allow_rejection', type=str2bool, default=False, help='')
 
 ### Neural Network ###
+nn_arg = parser.add_argument_group('neural network')
+nn_arg.add_argument('--graph_encoder', type=str, choices=('egat', 'gcn'), default='egat',
+                    help='Physical-network encoder used by EGAT-DPOT; gcn is an architecture ablation')
+nn_arg.add_argument('--use_lstm', type=str2bool, default=True,
+                    help='Use the sequence LSTM encoder and decoder; false enables the feed-forward architecture ablation')
 
 
 ### Reinforcement Learning ###

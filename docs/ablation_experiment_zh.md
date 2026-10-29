@@ -11,6 +11,8 @@
 | No incremental shaping | 是 | SFC 完成时一次结算 | 0.5 | 是 | 只删除稠密的增量安全反馈，保持最终目标不变 |
 | No security reward | 是 | 增量式 | 0.0 | 是 | 仅优化效率，检验安全奖励的贡献 |
 | No efficiency reward | 是 | 增量式 | 1.0 | 是 | 仅优化安全，检验效率奖励对平衡的贡献 |
+| EGAT to GCN | 是 | 增量式 | 0.5 | 是 | 用同为两层、同输出维度的拓扑 GCN 替换边属性 EGAT |
+| Without LSTM | 是 | 增量式 | 0.5 | 是 | 用逐位置 MLP 与均值池化替换序列 LSTM 编码器和解码器 |
 
 `No incremental shaping` 不是恢复旧版逐 VNF 累计奖励。中间成功步骤奖励为 0，完整 SFC 成功时才结算一次
 `0.5 * TS_norm + 0.5 * Revenue/Cost`；失败时使用固定终止惩罚。这样与 Full 的成功回报总目标一致，唯一变化是是否提供逐步安全反馈。
@@ -32,6 +34,14 @@
 no_incremental_shaping no_security_reward no_efficiency_reward
 ```
 
+网络结构消融单独使用新的结果目录运行：
+
+```bash
+JNCA_ABLATION_VARIANTS="egat_to_gcn without_lstm"
+```
+
+`EGAT to GCN` 保留两层图编码器和 64 维输出，但取消多头注意力与链路属性条件化，只使用物理拓扑邻接关系。`Without LSTM` 保留相同输入、输出维度、注意力接口、PPO、reward、mask 和 trust state；VNF 表征由逐位置 MLP 生成，均值池化提供初始状态，解码阶段使用前馈变换，不再使用循环记忆。两个版本都必须从头训练，不能用 A2C-GCN 或 TwoStage-GCN-DRL 的结果替代。
+
 若需要补充实验，显式设置：
 
 ```bash
@@ -44,9 +54,13 @@ JNCA_ABLATION_VARIANTS="adaptive_security_weight legacy_reward"
 
 默认核心任务应产生 `3 × 5 = 15` 个 `best_model.pkl`。Full 和 No trust state 直接复用已经完成的正式训练结果，不重复训练。
 
+结构消融另外产生 `2 × 5 = 10` 个 `best_model.pkl`。
+
 测试阶段只加载验证集选出的 checkpoint，在冻结测试请求 `seed_20001` 至 `seed_20005` 上推理，不更新模型参数。
 
 默认核心冻结测试应产生 `3 × 5 × 5 = 75` 个 `global_summary.csv`。与既有 Full、No trust state 合并后，核心消融表共 5 个版本。
+
+结构消融冻结测试另外产生 `2 × 5 × 5 = 50` 个 `global_summary.csv`。合并奖励、状态和结构消融后，主消融表共 7 个版本。
 
 学习方法的统计单位是训练种子：先对同一个训练种子的 5 个测试集求平均，再跨 5 个训练种子报告均值和样本标准差。
 
@@ -59,4 +73,6 @@ JNCA_ABLATION_VARIANTS="adaptive_security_weight legacy_reward"
 - Full 对比 No trust state：历史可靠性状态的贡献；
 - Full 对比 No incremental shaping：增量式安全反馈的贡献；
 - No security reward、Full、No efficiency reward：安全—效率平衡；
+- Full 对比 EGAT to GCN：边属性增强注意力图编码器的贡献；
+- Full 对比 Without LSTM：VNF 顺序与历史部署序列建模的贡献；
 - Adaptive security weight 与 Legacy reward：只作为补充分析，不用于单组件因果归因。
