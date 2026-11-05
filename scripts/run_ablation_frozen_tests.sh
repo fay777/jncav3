@@ -55,6 +55,9 @@ variant_flags() {
         egat_to_gcn)
             flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder gcn --use_lstm true)
             ;;
+        egat_to_gat)
+            flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder gat --use_lstm true)
+            ;;
         without_lstm)
             flags=(--normalize_ts true --incremental_security_shaping true --terminal_only_security_reward false --security_reward_weight 0.5 --include_trust_in_state true --graph_encoder egat --use_lstm false)
             ;;

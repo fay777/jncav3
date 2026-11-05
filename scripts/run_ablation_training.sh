@@ -96,6 +96,18 @@ variant_flags() {
             )
             config_row="egat_to_gcn,true,true,false,0.5,true,gcn,true,1.0,140,10,core_architecture_ablation"
             ;;
+        egat_to_gat)
+            flags=(
+                --normalize_ts true
+                --incremental_security_shaping true
+                --terminal_only_security_reward false
+                --security_reward_weight 0.5
+                --include_trust_in_state true
+                --graph_encoder gat
+                --use_lstm true
+            )
+            config_row="egat_to_gat,true,true,false,0.5,true,gat,true,1.0,140,10,core_architecture_ablation"
+            ;;
         without_lstm)
             flags=(
                 --normalize_ts true

@@ -67,6 +67,12 @@ class ArchitectureAblationTests(unittest.TestCase):
         self.assertFalse(any(isinstance(module, GATConv) for module in policy.modules()))
         self.assert_forward_shapes(policy)
 
+    def test_gat_ablation_keeps_attention_without_edge_features(self):
+        policy = self.make_policy(graph_encoder='gat', use_lstm=True)
+        self.assertTrue(any(isinstance(module, GATConv) for module in policy.modules()))
+        self.assertFalse(any(isinstance(module, GCNConv) for module in policy.modules()))
+        self.assert_forward_shapes(policy)
+
     def test_without_lstm_ablation_removes_recurrent_layers(self):
         policy = self.make_policy(graph_encoder='egat', use_lstm=False)
         self.assertFalse(any(isinstance(module, nn.LSTM) for module in policy.modules()))

@@ -60,6 +60,26 @@ class PaperGCNEncoder(nn.Module):
         return self.layer2(x, graph.edge_index)
 
 
+class PaperGATEncoder(nn.Module):
+    """Two-layer topology-only GAT for isolating edge-feature conditioning.
+
+    It preserves the EGAT encoder's depth, multi-head attention, and output
+    dimension, but deliberately ignores physical-link attributes.  Thus the
+    EGAT-vs-GAT comparison isolates edge-aware attention, whereas EGAT-vs-GCN
+    changes both attention and edge-attribute conditioning.
+    """
+    def __init__(self, input_dim, output_dim, hidden_dim=64, heads=4):
+        super().__init__()
+        self.layer1 = GATConv(input_dim, hidden_dim, heads=heads, concat=True,
+                              add_self_loops=False)
+        self.layer2 = GATConv(hidden_dim * heads, output_dim, heads=heads,
+                              concat=False, add_self_loops=False)
+
+    def forward(self, graph):
+        x = F.elu(self.layer1(graph.x, graph.edge_index))
+        return self.layer2(x, graph.edge_index)
+
+
 class ActorCritic(nn.Module):
     
     def __init__(self, p_net_num_nodes, p_net_feature_dim, p_net_edge_feature_dim,
@@ -196,6 +216,10 @@ class Decoder(nn.Module):
         elif graph_encoder == 'gcn':
             self.gat = PaperGCNEncoder(feature_dim, embedding_dim,
                                        hidden_dim=embedding_dim)
+        elif graph_encoder == 'gat':
+            self.gat = PaperGATEncoder(feature_dim, embedding_dim,
+                                       hidden_dim=embedding_dim,
+                                       heads=num_attention_heads)
         else:
             raise ValueError(f'Unsupported graph_encoder: {graph_encoder}')
         self.mlp = nn.Sequential(
