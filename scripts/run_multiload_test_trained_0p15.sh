@@ -10,6 +10,7 @@ TRAIN_ROOT="${JNCA_LAMBDA_0P15_TRAIN_ROOT:-$PROJECT_ROOT/runs_train_test_lambda_
 BENCH_ROOT="${JNCA_MULTILOAD_BENCH_ROOT:-$PROJECT_ROOT/runs_arrival_rate_0p1_to_1p0_20261030/benchmarks}"
 RESULT_ROOT="${JNCA_MULTILOAD_TEST_ROOT:-$PROJECT_ROOT/runs_multiload_test_models_trained_at_0p15_20261105}"
 GPU_LIST_TEXT="${JNCA_TEST_GPUS:-2 3 4 5 6}"
+SEED_GPU_LIST_TEXT="${JNCA_SEED_GPUS:-}"
 RATE_LIST_TEXT="${JNCA_RATES:-0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0}"
 
 read -r -a GPUS <<< "${GPU_LIST_TEXT}"
@@ -17,9 +18,17 @@ read -r -a RATES <<< "${RATE_LIST_TEXT}"
 TRAIN_SEEDS=(1 2 3 4 5)
 TEST_SEEDS=(20001 20002 20003 20004 20005)
 
-if [[ ${#GPUS[@]} -lt 1 ]]; then
-    echo "JNCA_TEST_GPUS must contain at least one GPU id." >&2
-    exit 1
+if [[ -n "${SEED_GPU_LIST_TEXT}" ]]; then
+    read -r -a SEED_GPUS <<< "${SEED_GPU_LIST_TEXT}"
+    if [[ ${#SEED_GPUS[@]} -ne ${#TRAIN_SEEDS[@]} ]]; then
+        echo "JNCA_SEED_GPUS must contain exactly five GPU ids, one for each training seed." >&2
+        exit 1
+    fi
+else
+    if [[ ${#GPUS[@]} -lt 1 ]]; then
+        echo "JNCA_TEST_GPUS must contain at least one GPU id." >&2
+        exit 1
+    fi
 fi
 
 case "${METHOD}" in
@@ -130,19 +139,29 @@ run_seed() {
 }
 
 pids=()
-gpu_count="${#GPUS[@]}"
-for worker_index in "${!GPUS[@]}"; do
-    gpu="${GPUS[$worker_index]}"
-    (
-        # One worker owns one GPU.  With fewer than five GPUs, it processes
-        # its assigned training seeds sequentially rather than oversubscribing.
-        for ((index=worker_index; index<${#TRAIN_SEEDS[@]}; index+=gpu_count)); do
-            run_seed "${index}" "${gpu}"
-        done
-    ) > "${RESULT_ROOT}/logs/${METHOD}_gpu_${gpu}.log" 2>&1 &
-    pids+=("$!")
-    echo "${METHOD}: GPU ${gpu}, PID $!"
-done
+if [[ -n "${SEED_GPU_LIST_TEXT}" ]]; then
+    # Explicit seed-to-GPU mapping: positions map to training seeds 1..5.
+    for index in "${!TRAIN_SEEDS[@]}"; do
+        gpu="${SEED_GPUS[$index]}"
+        run_seed "${index}" "${gpu}" > "${RESULT_ROOT}/logs/${METHOD}_train_seed_${TRAIN_SEEDS[$index]}_gpu_${gpu}.log" 2>&1 &
+        pids+=("$!")
+        echo "${METHOD}: train seed ${TRAIN_SEEDS[$index]}, GPU ${gpu}, PID $!"
+    done
+else
+    gpu_count="${#GPUS[@]}"
+    for worker_index in "${!GPUS[@]}"; do
+        gpu="${GPUS[$worker_index]}"
+        (
+            # One worker owns one GPU.  With fewer than five GPUs, it processes
+            # its assigned training seeds sequentially rather than oversubscribing.
+            for ((index=worker_index; index<${#TRAIN_SEEDS[@]}; index+=gpu_count)); do
+                run_seed "${index}" "${gpu}"
+            done
+        ) > "${RESULT_ROOT}/logs/${METHOD}_gpu_${gpu}.log" 2>&1 &
+        pids+=("$!")
+        echo "${METHOD}: GPU ${gpu}, PID $!"
+    done
+fi
 
 status=0
 for pid in "${pids[@]}"; do
