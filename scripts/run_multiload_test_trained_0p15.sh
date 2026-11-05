@@ -17,8 +17,8 @@ read -r -a RATES <<< "${RATE_LIST_TEXT}"
 TRAIN_SEEDS=(1 2 3 4 5)
 TEST_SEEDS=(20001 20002 20003 20004 20005)
 
-if [[ ${#GPUS[@]} -ne ${#TRAIN_SEEDS[@]} ]]; then
-    echo "JNCA_TEST_GPUS must contain exactly five GPU ids." >&2
+if [[ ${#GPUS[@]} -lt 1 ]]; then
+    echo "JNCA_TEST_GPUS must contain at least one GPU id." >&2
     exit 1
 fi
 
@@ -70,8 +70,8 @@ mkdir -p "${RESULT_ROOT}/logs"
 
 run_seed() {
     local index="$1"
+    local gpu="$2"
     local train_seed="${TRAIN_SEEDS[$index]}"
-    local gpu="${GPUS[$index]}"
     local train_dir="${TRAIN_ROOT}/${METHOD}/train_seed_${train_seed}"
     local checkpoint
     checkpoint="$(find "${train_dir}" -name best_model.pkl -type f -print -quit)"
@@ -130,10 +130,18 @@ run_seed() {
 }
 
 pids=()
-for index in 0 1 2 3 4; do
-    run_seed "${index}" > "${RESULT_ROOT}/logs/${METHOD}_train_seed_${TRAIN_SEEDS[$index]}.log" 2>&1 &
+gpu_count="${#GPUS[@]}"
+for worker_index in "${!GPUS[@]}"; do
+    gpu="${GPUS[$worker_index]}"
+    (
+        # One worker owns one GPU.  With fewer than five GPUs, it processes
+        # its assigned training seeds sequentially rather than oversubscribing.
+        for ((index=worker_index; index<${#TRAIN_SEEDS[@]}; index+=gpu_count)); do
+            run_seed "${index}" "${gpu}"
+        done
+    ) > "${RESULT_ROOT}/logs/${METHOD}_gpu_${gpu}.log" 2>&1 &
     pids+=("$!")
-    echo "${METHOD}: train seed ${TRAIN_SEEDS[$index]}, GPU ${GPUS[$index]}, PID $!"
+    echo "${METHOD}: GPU ${gpu}, PID $!"
 done
 
 status=0
