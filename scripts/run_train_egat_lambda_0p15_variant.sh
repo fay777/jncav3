@@ -126,11 +126,23 @@ run_seed() {
     echo "Checkpoint: ${checkpoint_path}"
 }
 
-pids=()
+declare -A GPU_TO_INDICES=()
 for index in "${!TRAIN_SEEDS[@]}"; do
-    run_seed "${index}" &
+    gpu="${SEED_GPUS[$index]}"
+    GPU_TO_INDICES["${gpu}"]="${GPU_TO_INDICES["${gpu}"]-}${index} "
+done
+
+pids=()
+for gpu in "${!GPU_TO_INDICES[@]}"; do
+    (
+        # Different GPUs train in parallel. Seeds mapped to the same GPU train
+        # sequentially to avoid placing multiple full training jobs on one card.
+        for index in ${GPU_TO_INDICES["${gpu}"]}; do
+            run_seed "${index}"
+        done
+    ) &
     pids+=("$!")
-    echo "${VARIANT}: train seed ${TRAIN_SEEDS[$index]}, GPU ${SEED_GPUS[$index]}, PID $!"
+    echo "${VARIANT}: GPU ${gpu}, seed indices ${GPU_TO_INDICES["${gpu}"]}, PID $!"
 done
 
 status=0
