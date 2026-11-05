@@ -10,7 +10,7 @@ PROJECT_ROOT="${JNCA_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && p
 BASE_RUN_ROOT="${JNCA_LAMBDA_0P15_RUN_ROOT:-$PROJECT_ROOT/runs_train_test_lambda_0p15_20261104}"
 VSETTING="${JNCA_LAMBDA_0P15_SETTING:-$PROJECT_ROOT/settings/v_sim_setting_lambda_0p15.yaml}"
 P_NET="${JNCA_P_NET_DATASET:-$PROJECT_ROOT/benchmark_jnca_v1/p_net}"
-VALIDATION_ROOT="${JNCA_LAMBDA_0P15_VALIDATION_ROOT:-$PROJECT_ROOT/runs_arrival_rate_0p1_to_1p0_20261030/benchmarks/rate_0.15/validation/seed_10001}"
+VALIDATION_ROOT="${JNCA_LAMBDA_0P15_VALIDATION_ROOT:-$PROJECT_ROOT/benchmark_jnca_v1/validation/seed_10001_rate_0p15}"
 SEED_GPU_LIST_TEXT="${JNCA_SEED_GPUS:-2 3 4 5 6}"
 
 TRAIN_SEEDS=(1 2 3 4 5)
@@ -126,23 +126,13 @@ run_seed() {
     echo "Checkpoint: ${checkpoint_path}"
 }
 
-declare -A GPU_TO_INDICES=()
-for index in "${!TRAIN_SEEDS[@]}"; do
-    gpu="${SEED_GPUS[$index]}"
-    GPU_TO_INDICES["${gpu}"]="${GPU_TO_INDICES["${gpu}"]-}${index} "
-done
-
 pids=()
-for gpu in "${!GPU_TO_INDICES[@]}"; do
-    (
-        # Different GPUs train in parallel. Seeds mapped to the same GPU train
-        # sequentially to avoid placing multiple full training jobs on one card.
-        for index in ${GPU_TO_INDICES["${gpu}"]}; do
-            run_seed "${index}"
-        done
-    ) &
+for index in "${!TRAIN_SEEDS[@]}"; do
+    # Each seed is an independent process. Duplicate GPU ids intentionally run
+    # concurrently on the same card when the user supplies such a mapping.
+    run_seed "${index}" &
     pids+=("$!")
-    echo "${VARIANT}: GPU ${gpu}, seed indices ${GPU_TO_INDICES["${gpu}"]}, PID $!"
+    echo "${VARIANT}: train seed ${TRAIN_SEEDS[$index]}, GPU ${SEED_GPUS[$index]}, PID $!"
 done
 
 status=0
